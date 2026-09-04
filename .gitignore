@@ -15,3 +15,6 @@ __pycache__/
 .DS_Store
 # local db clusters
 .pg/
+# evaluation runtime output (D-2b2-G2-3); the G4 touch log is the only committed file here
+eval/results/*
+!eval/results/heldout_touches.jsonl

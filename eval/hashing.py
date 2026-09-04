@@ -20,6 +20,8 @@ FREEZE_FILES: Final[tuple[str, ...]] = (
     "eval/safety_policy.v1.json",
     "eval/enr.py",
     "eval/config.v1.toml",
+    "eval/sut/classify.py",
+    "eval/gap_metadata.v1.json",
 )
 
 

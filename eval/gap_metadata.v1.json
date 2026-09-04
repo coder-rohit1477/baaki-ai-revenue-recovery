@@ -1,0 +1,8 @@
+{
+  "gap_metadata_version": "gap_metadata.v1",
+  "description": "G2-owned evaluation-only sidecar for GAP-2b2-1 (CHANNEL_OTHER). Keyed by the frozen G1 item id; never written back into the corpus. An item without a measurable entry is scored NOT_MEASURABLE.",
+  "entries": [
+    {"item_id": "C-000024", "gap_id": "GAP-2b2-1", "inbound_channel": "EMAIL", "restricted_channel": null, "measurable": false,
+     "note": "'Don't call me' restricts voice calls, which is not a production channel (EMAIL/SMS/WHATSAPP); exposure is not measurable in v1"}
+  ]
+}

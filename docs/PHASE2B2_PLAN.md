@@ -1,6 +1,6 @@
 # Phase 2b-2 Plan — Offline Evaluation Harness and Adversarial Corpus
 
-**Status:** G1 IMPLEMENTED (bootstrap/infrastructure only; uncommitted). G2–G5 not started. No number produced by G1 is evaluation evidence.
+**Status:** G1 COMMITTED (`8f57e35`); G2 IMPLEMENTED (harness core; uncommitted, awaiting commit review). G3–G5 not started. No number produced by G1/G2 on the seed is evaluation evidence.
 **Basis:** `docs/ARCHITECTURE.md` v3.3.2 §10–§11, §14; `docs/PHASE2B_PLAN.md` §9–§10; Phase 2b-1 closed at `6e0668fc81e81356c47a5437e72863653e5cab2d`.
 **Hard boundary:** offline only. No OpenAI SDK, API key, network, live-model evaluation, Phase 2b-3, migrations, or production changes.
 
@@ -103,8 +103,8 @@ Every number is labelled **measured / report-only / gated / not-run**. G1 output
 | Gate | Scope | Status |
 |---|---|---|
 | G1 | schema, profiles, safety policy + Layer-B evaluator, ENR reference, loader/integrity, hashing, **41-item** BOOTSTRAP seed (40 planned + one Hinglish `DISPUTE_AMOUNT` so every intent has ≥ 2 items), tests | implemented (uncommitted) |
-| G2 | harness core: rules SUT, metrics (L9/L6/LS/L7, OPT_OUT strata, PTP, stopping, pairs), result JSON, regression split | not started |
-| G3 | chain SUT, adversarial corpus, `unsafe_*` metrics, PG16 security subset | not started |
+| G2 | harness core: `eval/records.py`, `eval/compare.py`, `eval/metrics.py`, `eval/stats.py`, `eval/report.py`, `eval/run.py`, `eval/sut/{base,rules,chain,classify,probes}.py`, `eval/gap_metadata.v1.json`; SUT × arm matrix (rules.v1 → CONTROL/RULES_ONLY, chain.v1 → TREATMENT); EXPECTED/ACTUAL/COMPARISON; per-arm metrics with explicit denominators; Wilson/rule-of-three; gates (locked invariants, candidates report-only, integrity); deterministic artefact; `python -m eval.run` (live refused) | implemented (uncommitted) |
+| G3 | adversarial corpus expansion (≥50, 8 categories), PG16 security subset (chain SUT and `unsafe_*` metrics moved to G2 per D-2b2-G2-1) | not started |
 | G4 | generator, held-out bank, calibration, freeze, touch protocol, gate evaluation | not started |
 | G5 | Markdown demo cards from JSON only | not started |
 
@@ -112,6 +112,10 @@ Every number is labelled **measured / report-only / gated / not-run**. G1 output
 D-2b2-1 LOCKED · D-2b2-2 LOCKED · D-2b2-3 LOCKED · D-2b2-4 LOCKED · D-2b2-5 LOCKED · D-2b2-6 LOCKED · D-2b2-7 invariants LOCKED,
 candidates PROPOSED · D-2b2-8 LOCKED · D-2b2-9 LOCKED · D-2b2-10 PROPOSED · D-2b2-11 LOCKED · D-2b2-12 PROPOSED · D-2b2-13 LOCKED ·
 D-2b2-14 LOCKED · D-2b2-15 LOCKED · D-2b2-16 LOCKED · D-2b2-17 PROPOSED · GAP-2b2-1 RECORDED / P4 BACKLOG.
+
+**G2 decisions (all LOCKED at G2 GO):** D-2b2-G2-1 chain SUT in G2 · G2-2 SUT × arm matrix and `eval/sut/*`-only production imports · G2-3 `eval/results/*` git-ignored (except the G4 touch log) · G2-4 frozen G1 schema/corpus untouched; `eval/gap_metadata.v1.json` sidecar keyed by item id, unmeasurable ⇒ NOT_MEASURABLE · G2-5 Wilson 95 % + rule-of-three · G2-6 faults count as incorrect, reported as `fault_share_*` · G2-7 `python -m eval.run` only · G2-8 `classify.v1` measurement aid · G2-9 interpretation metric family (`correct_substantive_rate`, `false_substantive_interpretation_rate`, `missed_interpretation_rate`, `fault_share_sub`, `correct_abstention_rate`, `false_positive_interpretation_rate`, `fault_share_nci`) · G2-10 `provider_schema_closure` (locked invariant) vs `evaluation_schema_validation` and `corpus_schema_validation` (integrity gates).
+**KNOWN BOOTSTRAP CORPUS DEFECT (recorded at G2; unchanged in G2):** C-000036 / C-000040 are authored `expected_proposal_classification = UNSAFE`; `classify.v1` currently labels them SAFE (schema-valid deceptions whose harm is measured as interpretation error / missed opt-out). This is not hidden (`proposal_classification_match_rate = 3/5` on the seed). It is not treated as evaluation evidence. It does not invalidate the G2 harness. Resolution belongs to G3 corpus authoring; the G1 seed and its hash stay frozen in G2. Measured on the seed: `unsafe_proposal_rate = 3/5`, `unsafe_effect_rate = 0/5`, `proposal_classification_match_rate = 3/5`.
+**Determinism invariant (as implemented and tested):** across independent runs `comparison_hash`, `actuals_hash` and `run_id` are identical and every deterministic artefact field is equal; the only volatile fields are `created_at_utc` and `items[].actuals[].latency` (`total_ns`, `stages_ns`, `fixture_latency_ms`). Canonical hashing excludes exactly those: `comparison_hash` covers all `ComparisonRecord`s (no volatile field inside), `actuals_hash` covers `ActualRecord`s with `latency` removed, `run_id` covers the identity fields only.
 
 ## 15. Non-goals
 No OpenAI SDK/API/key/live tests; no Phase 2b-3/2b-4; no simulator or experiment assignment; no schema/migration/grant/dependency
