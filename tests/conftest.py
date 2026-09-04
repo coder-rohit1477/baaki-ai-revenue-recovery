@@ -118,7 +118,7 @@ def cluster() -> Iterator[Cluster]:
 @pytest.fixture
 def db(cluster: Cluster) -> Iterator[Cluster]:
     """Clean slate per test: truncate all P1 tables except provider_secret (bootstrap data)."""
-    tables = ", ".join(f"baaki.{t}" for t in P1_TABLES if t != "provider_secret")
+    tables = ", ".join(f"baaki.{t}" for t in P1_TABLES if t not in ("provider_secret", "template_registry"))
     with psycopg.connect(cluster.dsns["super"], autocommit=True) as c:
         c.execute(f"TRUNCATE {tables} CASCADE")
     yield cluster

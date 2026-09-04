@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from baaki.contracts.normalized_action import NormalizedActionProposal
 from baaki.domain.enums import RejectionReason, ValidationOutcome
 from baaki.domain.errors import ContractViolation
 from baaki.domain.money import ClaimedPaise
@@ -38,7 +39,7 @@ class ValidationResult(BaseModel):
     business_date: date  # derived
     outcome: ValidationOutcome
     rejection_reasons: list[RejectionReason] = Field(default_factory=list)
-    normalized: NormalizedInterpretation | dict[str, Any] | None = None
+    normalized: NormalizedInterpretation | NormalizedActionProposal | dict[str, Any] | None = None  # P2-D3
     checks_run: list[dict[str, Any]]
     validator_version: str = Field(min_length=1)
     validator_hash: str = Field(min_length=64, max_length=64)

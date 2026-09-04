@@ -1,1 +1,1 @@
-"""Reserved for a later phase (ARCHITECTURE.md §13.2). Intentionally empty in Phase 1."""
+"""Read-only ledger projections and invariant checks. Imports domain/ only (ARCHITECTURE.md §5.3)."""

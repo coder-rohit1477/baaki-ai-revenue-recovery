@@ -1,1 +1,4 @@
-"""Reserved for a later phase (ARCHITECTURE.md §13.2). Intentionally empty in Phase 1."""
+"""Deterministic policy layer: ruleset, validator, snapshot assembly, kernel, arm strategies.
+
+No I/O outside `snapshot.py`; no model access; no provider access (ARCHITECTURE.md §5.3).
+"""

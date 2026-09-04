@@ -86,18 +86,10 @@ def seed_org_account_contact(owner: Connection) -> dict[str, UUID]:
     owner.execute(text(
         "INSERT INTO baaki.contact (contact_id, account_id, channel, address_hash, address_redacted) "
         "VALUES (:c, :a, 'EMAIL', :h, 'a***@buyer.example')"), {"c": contact, "a": acct, "h": hashlib.sha256(b"a@buyer").hexdigest()})
-    for tid, ch, at, purpose in [
-        ("tpl.reminder.email.v1", "EMAIL", "SEND_REMINDER", "REMINDER"),
-        ("tpl.reminder.sms.v1", "SMS", "SEND_REMINDER", "REMINDER"),
-        ("tpl.link.email.v1", "EMAIL", "SEND_PAYMENT_LINK", "PAYMENT_LINK"),
-        ("tpl.dispute.email.v1", "EMAIL", "REQUEST_DISPUTE_DETAILS", "DISPUTE_DETAILS_REQUEST"),
-        ("tpl.installment.email.v1", "EMAIL", "PROPOSE_INSTALLMENT_PLAN", "INSTALLMENT_PROPOSAL"),
-        ("tpl.reminder.email.inactive", "EMAIL", "SEND_REMINDER", "REMINDER"),
-    ]:
-        owner.execute(text(
-            "INSERT INTO baaki.template_registry (template_id, channel, action_type, purpose, active, version, body_hash) "
-            "VALUES (:t, :c, :a, :p, :act, 1, :h)"),
-            {"t": tid, "c": ch, "a": at, "p": purpose, "act": not tid.endswith("inactive"), "h": H64})
+    owner.execute(text(
+        "INSERT INTO baaki.template_registry (template_id, channel, action_type, purpose, active, version, body_hash) "
+        "VALUES ('tpl.reminder.email.inactive', 'EMAIL', 'SEND_REMINDER', 'REMINDER', false, 1, :h) ON CONFLICT (template_id) DO NOTHING"),
+        {"h": H64})
     owner.commit()
     return {"org": org, "account": acct, "contact": contact}
 

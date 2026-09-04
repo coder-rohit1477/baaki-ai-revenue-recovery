@@ -1,12 +1,16 @@
 # Baaki — AI Revenue Recovery
-## Architecture Specification — v3.2.2 (Reconciled · Source of Truth)
+## Architecture Specification — v3.3.2 (Reconciled · Source of Truth · Phase 2 decisions locked · package graph reconciled)
 
 **Track 03 — AI Revenue Recovery (Razorpay AI Buildathon)**
 **Status:** Reconciled architecture. **This document governs implementation.** Any Phase plan
 must conform to it; where a plan and this document disagree, the plan is wrong.
-**Supersedes:** v1 (2026-09-03), v2, v3, v3.1, v3.2, v3.2.1 (2026-09-04). v3.2.1 added the GAP-1 enum members
-(§1.5.1). v3.2.2 clarifies the idempotency-key uniqueness invariant to describe the implemented partial unique
-index (§17.0). No other change.
+**Supersedes:** v1 (2026-09-03), v2, v3, v3.1, v3.2, v3.2.1, v3.2.2, v3.3.0 (2026-09-04). v3.3.0 was the Phase 2
+correction pass (P2/P2b split, SC7, arm-independent restriction events, tier-cap truth table, ruleset
+validation, paid-claim derivation, P7/P8 rules, T2 isolation, P2 failure semantics). **v3.3.1 locks the Phase 2
+decisions P2-D1…P2-D11 (§18.1.1); no Phase 2 policy value or semantic remains open.** Phase 1 implementation is unaffected.
+**v3.3.2 is documentation-only:** it records the *implemented* Phase 2 package graph (§5.3 — the `pipeline/` T2 orchestrator and the
+`policy/ → rules_agent/` edge) and makes the privilege wording precise (§6.3, §6.18). No value, decision, invariant, grant, or
+runtime behaviour changed.
 **Date:** 2026-09-04
 **Repository state at this revision:** this file only. No code, dependencies, database, or git.
 
@@ -104,7 +108,7 @@ has no network access. Every provider claim is `[ASSUME]`-tagged; §9.7 defines 
 | **I6** | Payment status originates only from provider-authoritative evidence — never model, debtor, caller, or amount matching. | `payment_event` requires a verified `webhook_event` or a `sweep_run`; **W04 extracts all financial fields from evidence bytes — it has no financial parameters**; ledger writers take an event id, never an amount |
 | **I7** | Every financial effect is idempotent at four independent boundaries. | Four `UNIQUE` constraints (§8.3) |
 | **I8** | The debtor simulator cannot observe arm assignment. | `baaki_sim` has no grant on `experiment_assignment` · import graph |
-| **I9** | Every decision records the ruleset hash and snapshot hash used. | `NOT NULL` · replay test |
+| **I9** | Every decision records the ruleset hash and snapshot hash used; the hashes **bind** the decision to its inputs (they do not reconstruct it). | `NOT NULL` · determinism test (P6) |
 | **I10** | **No application role holds `INSERT`/`UPDATE`/`DELETE` on any F-class or D-class table (§6.1). On M-class tables, application roles may `INSERT` and may `UPDATE` only Safe columns (§6.4A). C-class tables have no runtime DML. Every authority-sensitive mutation is a named writer W01–W25.** | Role grants · `information_schema` tests · red-team matrix |
 | **I11** | **Human-only operations are authorised by the connection role (`baaki_ops`, verified as `session_user` inside the writer), never by a caller-supplied actor string (§6.22).** | `EXECUTE` grants · H17 · AC1–AC14 |
 
@@ -169,6 +173,10 @@ are scope hints**: nothing downstream treats them as authoritative (§6.8.3).
 `normalized` (INTERPRETATION): `{ intent, promised_date: DATE|null, promised_paise: ClaimedPaise|null,
 invoice_ids: UUID[] (resolved ⊆ account's invoices, §6.8.3), contact_id: UUID|null, effective_confidence }`
 
+`normalized` (ACTION_PROPOSAL) **[P2-D3, locked]**: `{ action: ActionType, contact_id: UUID|null, channel: Channel,
+template_id: TEXT|null, followup_days: INT|null, effective_confidence }` — no money field; consumed by the kernel
+as the `L0` `ActionChoice`.
+
 **Invariants:** `V1` immutable · `V2`/`V3` PASS/REJECT biconditionals · `V4` `checks_run` complete
 to first HARD failure · `V5` `effective_confidence ≤ model_confidence` · `V6` pure · **`V7`
 normalised money is `ClaimedPaise` — claim evidence, never authority** · **`V8` `trace_id`,
@@ -176,16 +184,33 @@ normalised money is `ClaimedPaise` — claim evidence, never authority** · **`V
 
 ## 1.3 `AccountSnapshot` — the kernel's only view **[DD]**
 
-`snapshot_hash` · `as_of` · `business_date` · `account_id` · **`candidate_invoice_ids: UUID[]`**
-(open invoices of the account, deterministic — §6.8.3) · `target_invoice_id` (kernel-selected) ·
-`outstanding_paise: Paise` **(from `v_invoice_outstanding` only)** · `invoice_state` ·
-`days_overdue` · `opt_out` · `kill_switch` · `ledger_invariant_ok` · `open_dispute_ids` ·
-`unverified_paid_claim_until` · `active_ptp {…, promised_paise: ClaimedPaise}` ·
-`active_payment_link {…, amount_paise: Paise}` · `contacts_7d` · `contacts_invoice_7d` ·
-`last_contact_at` · `contactable_contact_ids` (`active ∧ ¬opted_out`) · `template_catalogue`.
+Pure input to the kernel, assembled in one `REPEATABLE READ` read-only transaction from Phase 1 tables and
+the ruleset — **never from model output** (SN1).
 
-`S1` assembled in one `REPEATABLE READ` transaction · `S2` `outstanding_paise` has no other source ·
-`S3` hash covers every field.
+| Field | Source | Phase 2 value when the owning state does not yet exist |
+|---|---|---|
+| `snapshot_hash` | SHA-256 of canonical JSON of every other field | — |
+| `as_of`, `business_date` | injected `Clock`; `business_date` in `organization.timezone` | — |
+| `account_id` | | — |
+| **`candidate_invoice_ids: UUID[]`** | SC2: account's invoices with `state ≠ PAID` and `v_invoice_outstanding > 0`, ordered `(days_overdue desc, outstanding desc, invoice_id asc)`. **Non-empty by construction: an account with no candidates produces no snapshot and no decision (SC7, §6.8.3)** | — |
+| `target_invoice_id` | SC3 (`select_target`, pure) | — |
+| `outstanding_paise: Paise` | **`v_invoice_outstanding` only** (S2); never `invoice.issued_paise` | — |
+| `invoice_state`, `days_overdue` | `invoice.state`; `business_date − due_date` (min 0) | — |
+| `opt_out`, `kill_switch`, `ledger_invariant_ok` | `account`, `organization`, `ledger/invariants` | — |
+| `open_dispute_ids` | `dispute` [P3] | `[]` (P5 still evaluates `invoice_state = DISPUTED`) |
+| `unverified_paid_claim_until` | derived from `validation_result` + `payment_event.applied_at` (§5.6) | derivable in P2 |
+| `active_ptp {ptp_id, due_date, promised_paise: ClaimedPaise, state}` | `promise_to_pay` [P3] | **`None`** — P7 logic exists and is fixture-tested; no PTP state is invented |
+| `active_payment_link {link_id, created_at, amount_paise: Paise}` | `recovery_action` rows of type `SEND_PAYMENT_LINK` in `EXECUTED`/`CONFIRMED` with `provider_ref` [P4 populates] | **`None`** in P2 (no execution exists) |
+| `contacts_7d`, `contacts_invoice_7d` | **intent-count basis**: `recovery_action` rows of outbound type in `{QUEUED, EXECUTING, EXECUTED, CONFIRMED}` with `created_at ≥ as_of − 7d`, per account / per invoice. Queued intents count conservatively; this is **not** a delivered-message count and must not be reported as "messages sent" without delivery evidence | 0 until actions exist |
+| `last_contact_at` | max `created_at` of the rows counted above | `None` |
+| `contactable_contact_ids` | `contact.active ∧ ¬contact.opted_out` | — |
+| `template_catalogue` | `template_registry` (id, channel, action_type, purpose, active) | seeded by migration |
+
+`S1` one `REPEATABLE READ` transaction · `S2` `outstanding_paise` has no other source · `S3` `snapshot_hash` covers
+every field except itself · **`S4` fields whose owning table/writer belongs to a later phase are represented as
+`None`/`[]` exactly as typed above — Phase 2 never fabricates authoritative future state** · `S5`
+`payment_event.applied_at` is read-only provider-authoritative evidence; the kernel and assembler never mutate
+`payment_event`.
 
 ## 1.4 `PolicyDecision` — the only financial authority object
 
@@ -229,14 +254,14 @@ PolicyDecision = ExecutableDecision | NonExecutableDecision   (discriminated on 
 | P3b | `NON_EXECUTABLE ⟹ action_type ∧ canonical_payload NULL` | Union · CHECK · W09 |
 | P4 | No payload money value traceable to `AgentProposal` or `normalized` | A3 · V7 |
 | P5 | `tier=2 ⟹ REQUIRE_APPROVAL` | CHECK · W09 |
-| P6 | Replayable byte-for-byte from `(validation, snapshot, policy_hash)` | Property test [P2] |
+| P6 | **Deterministic:** given identical canonical `AccountSnapshot`, `Ruleset` (same `policy_hash`) and `ActionChoice`, the kernel produces the identical canonical decision payload. `snapshot_hash`/`policy_hash` **bind** the recorded decision to those inputs; they do not by themselves reconstruct it | Property test [P2] |
 | P7 | `arm ∈ {CONTROL, RULES_ONLY} ⟹ proposal_id NULL` | CHECK |
 | P8 | `DEFER ⟺ defer_until NOT NULL` | Union · CHECK |
 | **P9** | **Non-executable decision never produces a `RecoveryAction`** | `from_decision` type · allowlist trigger · W10 |
 | P10 | `proposal_id NOT NULL ⟹ validation.proposal_id = proposal_id` and `trace_id`, `account_id`, `business_date` equal the proposal's | W09 derives · `trg_decision_linkage` verifies |
 | P11 | `validation.outcome = REJECT ⟹ degradation_level ≠ L0` | W09 |
 | P12 | Executable payload with `template_id` satisfies TPL1–TPL5 (§6.14) | Kernel · W09 · FK |
-| **P13** | **`invoice_id` belongs to `account_id` and ∈ `snapshot.candidate_invoice_ids`; model-supplied invoice references never select it directly (§6.8.3)** | `trg_decision_linkage` (account match) · W09 (candidate set) |
+| **P13** | **`invoice_id` belongs to `account_id` and ∈ `snapshot.candidate_invoice_ids`** — for every verdict, executable or not; model-supplied invoice references never select it directly. **Consequently an account with an empty candidate set has no decision row at all (SC7, §6.8.3)** | `trg_decision_linkage` (account match) · W09 (candidate set) |
 
 ## 1.5 `CanonicalPayload`
 
@@ -260,7 +285,7 @@ has no such fields and cannot influence them.
 
 Each value below has a named consumer in this document. No value introduces a capability that does
 not already exist. Derivation is a pure function of the kernel's precedence evaluation (§4.2) and
-the validation outcome, so it is replayable (P6).
+the validation outcome, so it is deterministic (P6).
 
 **`suppress_reason`** — set by the kernel on `SuppressPayload` whenever the decided action is
 `SUPPRESS`. Derivation: the **highest-precedence pressure-blocking condition that holds** in the
@@ -472,6 +497,25 @@ system of record. Stated in the UI.
 `action_state` holds only states a row can occupy. There is no `SENT` state; the equivalent is
 `EXECUTED`, which requires a `provider_ref` from a successful provider submission.
 
+### 3.1.1 Phase 2 boundary — creation only, no transitions **[DD]**
+
+Phase 2 **creates authoritative action records; it does not execute recovery actions and delivers no
+communication.** Until W19a/W19b exist (P4), every transition is forbidden and unreachable:
+
+| From | To | Phase 2 status | Enforced by |
+|---|---|---|---|
+| — | `QUEUED` (+ outbox) via W10, decision `ALLOW` | **permitted** | W10 |
+| — | `PENDING_APPROVAL` via W10, decision `REQUIRE_APPROVAL` | **permitted** | W10 |
+| — | `SUPERSEDED_DUPLICATE` via W10, key collision with another decision | **permitted** (audit row, no outbox) | W10 (IK1) |
+| `BLOCK` / `DEFER` decision | any action | **forbidden** | allowlist trigger + W10 (P9) |
+| `QUEUED` | any state | **forbidden** — no W19a exists; no role holds `UPDATE recovery_action` | grants (P1 U3–U7) |
+| `PENDING_APPROVAL` | any state | **forbidden** — no W19b exists; approval by `approved_by` string impossible | grants; `approved_by_role` writable by no one |
+| `SUPERSEDED_DUPLICATE` | any state | **forbidden** (terminal, forever) | grants; §3.3 has no row |
+| `outbox` rows | claim / lease | **forbidden** — no worker exists | grants |
+
+Test: after the complete Phase 2 suite runs, every `recovery_action` row is still in its initial state and every
+`outbox.claimed_at` is `NULL`.
+
 ## 3.2 The 11 states — complete definition
 
 Writers: **W10** `create_recovery_action` (insert) · **W19a** `transition_recovery_action` (every
@@ -546,7 +590,12 @@ execution → #6 re-check → `EXPIRED`.
 
 # 4. The Deterministic Validator **[P2]**
 
-`validate(proposal, snapshot) → ValidationResult`. Pure. **Fail-closed [DD].**
+`validate(proposal, source_text, account_facts) → ValidationResult`. Pure. **Fail-closed [DD].** **[P2-D4, locked]**
+`source_text` is the inbound message text the proposal was produced from; the validator asserts
+`sha256(source_text) = proposal.input_hash` before any check and rejects with `SCHEMA_VIOLATION` otherwise — the
+hash binds the evidence checks 07–08 to the exact bytes the model saw. `account_facts` are the pre-target
+snapshot facts (candidates, contactable contacts, kill switch, ledger status); SC3 runs between checks 12 and 13
+**[P2-D8, locked]**.
 
 ## 4.1 Order (short-circuits at first HARD)
 
@@ -593,12 +642,45 @@ queue, no PTP · SOFT → PTP `PENDING_REVIEW`/`CANCELLED`, authority capped to 
 | P14 | pass | `ALLOW` | — |
 
 Executor re-checks P0–P4 at claim (§3.3 #6). Interaction matrix as v3: opt-out dominates; dispute
-suspends PTP; paid claim suspends for 72h **[IMPL]** and triggers a sweep, never accepts.
+suspends PTP; paid claim suspends for 72 h (§5.6) and triggers a sweep [P4], never accepts.
 
-## 4.3 Confidence monotonicity (I4)
+**Terminology [DD]:** the validator has **16 checks** (§4.1); the policy ladder has **15 levels, P0–P14**
+(this table). They are different mechanisms and are never conflated: checks reject or normalise a
+*proposal*; ladder levels decide an *action*.
 
-`authority_tier = min(catalogue_tier(action_type), tier_cap(effective_confidence))`, `tier_cap`
-non-increasing. Property-tested over 10⁴ inputs.
+## 4.3 Confidence monotonicity (I4) — deterministic truth table **[DD]**
+
+Applies only to an `ActionChoice` of origin `L0` (a validated call-2 proposal carrying
+`effective_confidence`). Choices of origin `L1`/`L2` carry no confidence and take the catalogue tier
+unchanged (no cap applies; no upgrade is possible because the catalogue tier is the ceiling).
+
+**Bands (half-open, no overlap; boundaries from §5.4 — locked policy constants v1):**
+A `[0.85, 1.00]` · B `[0.70, 0.85)` · C `[0.50, 0.70)` · D `[0.00, 0.50)`.
+
+**Invariant (I4):** `authority_tier(final) <= catalogue_tier(requested_action)`, where
+`authority_tier = min(catalogue_tier(action_type), tier_cap(effective_confidence))`. The final deterministic
+decision may **reduce** the authority of the requested action; it must **never increase** it beyond the action's
+catalogue tier. Forcing `REQUIRE_APPROVAL` (recorded `tier = 2` per P5) or substituting `SUPPRESS` are further
+reductions of autonomous authority, never increases.
+
+| Requested action | Catalogue tier | Band | Final verdict | Final action | Recorded `tier` | Reason / queue |
+|---|---|---|---|---|---|---|
+| `SUPPRESS`, `SCHEDULE_FOLLOWUP`, `REQUEST_DISPUTE_DETAILS` | 0 | A, B, C | `ALLOW` | unchanged | 0 | derived per §1.5.1 |
+| any | any | **D** | — | **choice discarded**; pipeline substitutes the `L1` deterministic choice and records `degradation_level = L1` | per L1 result | — |
+| `SEND_REMINDER` | 1 | A | `ALLOW` | unchanged | 1 | — |
+| `SEND_REMINDER` | 1 | B | `ALLOW` | unchanged | 1 | — |
+| `SEND_REMINDER` | 1 | C | `ALLOW` | **`SUPPRESS`** | 0 | `suppress_reason` = highest holding of P5/P6/P7/P9, else `NO_ELIGIBLE_ACTION` |
+| `SEND_PAYMENT_LINK` | 1 | A | `ALLOW` | unchanged | 1 | — |
+| `SEND_PAYMENT_LINK` | 1 | **B** | **`REQUIRE_APPROVAL`** | unchanged | **2** | human must approve a link at moderate confidence |
+| `SEND_PAYMENT_LINK` | 1 | C | `ALLOW` | **`SUPPRESS`** | 0 | as above |
+| `PROPOSE_INSTALLMENT_PLAN`, `ESCALATE_TO_HUMAN` | 2 | A, B | `REQUIRE_APPROVAL` | unchanged | 2 | escalation reason/queue per §1.5.1 |
+| `PROPOSE_INSTALLMENT_PLAN`, `ESCALATE_TO_HUMAN` | 2 | C | `ALLOW` | **`SUPPRESS`** | 0 | as above |
+
+The ladder still runs on the *final* action (P0–P12 precede P13's substitution in evaluation order, and the
+kernel re-evaluates P0–P12 once on the substituted action, which can only be `SUPPRESS`, never a pressure
+action). **Proof obligation (property test, 10⁴ cases):** for every `(action, confidence)`,
+`authority_tier(final) <= catalogue_tier(requested_action)`; recorded `tier ∈ {0,1,2}`; no `L0` choice with
+`confidence < 0.50` ever reaches W09.
 
 ## 4.4 Ambiguity is rejection **[DD]** — no LLM re-prompt; "next week", "1.5", "half", two dates
 → human queue.
@@ -617,7 +699,7 @@ byte-identical across arms **[DD]**.
 | 1 | Model amount → payment amount | No money field in schemas; `amount_paise` from `snapshot.outstanding_paise`; W09 asserts CP5 |
 | 2 | Model output → executor | Executor accepts `ExecutableDecision` only |
 | 3 | Tools / function calling | None exist |
-| 4 | Network / DB from `agent/` | No session but `baaki_agent`; no HTTP but LLM adapter |
+| 4 | Network / DB from `agent/` | No session but `baaki_agent`; no HTTP client except the model-provider adapter of **P2b** (§7); Phase 2 has none |
 | 5 | Free-text escape | Closed enums; strict; unknown = HARD reject |
 | 6 | Arbitrary recipient | `contact_id ∈ contactable_contact_ids` |
 | 7 | Confidence uplift | `min()` |
@@ -650,8 +732,15 @@ byte-identical across arms **[DD]**.
 ```
 agent/       → domain/, providers/llm/, db/writers/proposal            connects as baaki_agent
              ✗ ledger/ actions/ reconcile/ experiment/ providers/razorpay/ db/writers/{decision,action,ledger,payment,lifecycle}
-policy/      → domain/, ledger/(read), db/writers/{validation,decision,optout_evidence}
-             ✗ providers/ agent/ actions/ db/writers/{ledger,payment,action}
+policy/      → domain/, contracts/, ledger/(read), rules_agent/(deterministic tree — scope below),
+               db/writers/{validation,decision,optout_evidence}   (in P2 `policy/` itself invokes only W11; W08/W09 are invoked by pipeline/)
+             ✗ providers/ agent/ actions/ pipeline/ db/writers/{ledger,payment,action,proposal,webhook,sweep,operator} db/{models,engine}
+policy/kernel ✗ rules_agent/ db/ ledger/ any I/O, clock, randomness or id generation   (pure; AST-tested)
+rules_agent/ → domain/, contracts/, policy/{ruleset,schemas,validate.normalize}        (pure: no model, no network, no DB)
+             ✗ providers/ agent/ actions/ pipeline/ ledger/ db/ policy/kernel sqlalchemy psycopg
+pipeline/    → domain/, contracts/, policy/, rules_agent/(interpreter), ledger/(read),
+               db/writers/{validation,decision,action_auto,optout_evidence}, db/idempotency   connects as baaki_app
+             ✗ agent/ providers/ db/writers/{proposal,ledger,payment,webhook,sweep,operator}
 actions/     → domain/, policy/(types), providers/razorpay/, db/writers/{action}
              ✗ agent/ db/writers/{ledger,payment,decision}
 reconcile/   → domain/, ledger/, providers/razorpay/, db/writers/{webhook,sweep,payment,ledger,ptp_verdict,action_auto}
@@ -663,7 +752,99 @@ experiment/  → domain/, ledger/(read), db/writers/experiment
 scripts/ops  → db/writers/{operator}   (W12, W14b, W15, W17b, W19b, W20, W21a/b)   connects as baaki_ops
              ✗ nothing else imports db/writers/operator (import-graph test)
 ```
+
+**T2 orchestrator — canonical location `src/baaki/pipeline/` (`pipeline/run.py`) [P2].** The transaction
+`validate → decide → create action` (§5.8) must invoke **both** W09 (`db/writers/decision`) and W10
+(`db/writers/action_auto`). `policy/` is forbidden the action writer and `actions/` is forbidden the decision
+writer, so neither may host the orchestrator without weakening its own boundary; the orchestrator therefore lives
+in its own package. `pipeline/` is the **single module permitted to import both W09 and W10**
+(`tests/arch/test_phase2_boundary.py` asserts exactly one such module). It may import `policy/` (validator,
+snapshot assembler, kernel, arm strategies, W11 helper), `rules_agent/` (the deterministic interpreter, for the
+`RULES_ONLY` arm and the `TREATMENT` L1 fallback), `ledger/` reads, and the W08/W09/W10/W11 wrappers. It may
+**never** import `agent/`, `providers/`, or the proposal/ledger/payment/webhook/sweep/operator writers. It owns
+no policy semantics: every verdict comes from `policy.kernel`, every action row from W10. In Phase 2 it creates
+authoritative action records only — no scheduler, no loop, no executor, no clock read (`as_of` is injected).
+
+**`policy/ → rules_agent/` — allowed, narrowly [P2].** `policy/arms/{control,rules_only}` and the `TREATMENT`
+L1 fallback import `rules_agent.tree` (the deterministic decision tree and its channel/template selection);
+`pipeline/` imports `rules_agent.interpreter` (keyword interpreter). Scope of the edge: **deterministic,
+model-free code only**. `rules_agent/` contains no model call, no provider, no network, no database access, and
+is forbidden `providers/`, `agent/`, `db/`, `ledger/` and the DB drivers (import-graph test). The reverse
+edge is limited to types and grammars: `rules_agent/ → policy/{ruleset,schemas,validate.normalize}` — never
+`policy/kernel`. `policy/kernel` imports nothing from `rules_agent/` (kernel purity test). This edge does **not**
+open any `policy ↔ agent` dependency: `agent/` (the LLM runtime, P2b) remains forbidden to `policy/`,
+`rules_agent/` and `pipeline/`, and the kernel remains independent of any OpenAI/provider-specific code.
+
 `KERNEL_TOKEN` importable only by `policy.kernel` and `tests/`.
+
+## 5.4 Policy constants v1 — **STATUS: LOCKED (v3.3.1, P2-D2)**
+
+These values are **policy decisions**, not facts inherited from earlier versions; they were approved with the
+Phase 2 correction pass and are locked here. They live in `config/policy.v1.toml` (**[P2-D1, locked]** — TOML via
+stdlib `tomllib`, no dependency) and are hashed into `policy_hash`. Changing any value is a new
+`policy_version` and a new hash — never an in-place edit.
+
+| Key | Locked value | Exact semantics |
+|---|---|---|
+| `contact_cap_account_7d` | 3 | P9 holds when `contacts_7d ≥ 3` (intent-count basis, §1.3 — **[P2-D5, locked]**) |
+| `contact_cap_invoice_7d` | 2 | P9 holds when `contacts_invoice_7d ≥ 2` |
+| `quiet_hours.window` | `09:00 ≤ local_time < 19:00` | inclusive start, **exclusive** end; `local_time` = `as_of` in `organization.timezone` (IANA string, the only timezone source) |
+| `quiet_hours.days` | Monday–Saturday | **Sunday is entirely outside the window** (every Sunday time → P10 `DEFER` to Monday 09:00 local) |
+| `quiet_hours.holidays` | none | **v1 has no holiday calendar**; closed days beyond Sunday are not modelled [FUTURE] |
+| `tier_cap.bands` | A `[0.85,1.00]`, B `[0.70,0.85)`, C `[0.50,0.70)`, D `[0.00,0.50)` | half-open, non-overlapping, exhaustive over `[0,1]`; behaviour per §4.3 |
+| `paid_claim_ttl_hours` | 72 | §5.6 (**[P2-D6, locked]**) |
+| `link_active_window_hours` | 24 | P8 ("payment-link TTL": a `SEND_PAYMENT_LINK` counts as active for 24 h after `executed_at`) |
+| `ptp_horizon_days` / `ptp_grace_business_days` | 30 / 2 | §2.3 (P3 consumer) |
+| `ptp_nudge_days_before_due` | 2 | P7 T−2 nudge |
+| `control_cadence_days_overdue` | `[3, 7, 15]` | `CONTROL` arm |
+| `rules_only.link_after_days_overdue` / `reminder_after_days_overdue` | 15 / 3 | `RULES_ONLY` tree |
+
+## 5.5 Ruleset loading — fail closed **[DD]**
+
+`Ruleset` is loaded once per process from the exact bytes of `config/policy.v1.toml` (stdlib `tomllib`; no
+dependency). `policy_hash = sha256(file bytes)`. The loaded object is a frozen contract; the kernel receives it
+by value and cannot mutate it. **Any of the following aborts loading (`RulesetInvalid`) — no partial or defaulted
+configuration is ever used:** missing key · unknown key · malformed value type · `tier_cap` bands not
+non-increasing in authority, overlapping, or not covering `[0,1]` · quiet-hours window with `start ≥ end` or
+outside 00:00–24:00 · invalid IANA timezone default · non-positive caps or TTLs · `policy_version` absent or not
+matching the filename. A decision whose recorded `policy_hash` differs from the loaded ruleset's hash is a
+**ruleset hash mismatch** and is treated as a stale-decision fault (§12.2).
+
+## 5.6 Paid-claim suspension — exact derivation **[DD]**
+
+| Element | Definition |
+|---|---|
+| Claim source | a `validation_result` with `outcome = PASS` and `normalized.intent = 'ALREADY_PAID_CLAIM'` whose proposal belongs to `account_id` |
+| `claim_at` | that validation's `created_at` |
+| Latest | the claim with the greatest `created_at` for the scope below (ties broken by `validation_id`) |
+| Scope | **invoice-scoped** if `normalized.invoice_ids` resolved to a non-empty set → the suspension applies only to those invoices; otherwise **account-scoped** → applies to every candidate invoice of the account |
+| Window | suspension holds while `as_of < claim_at + 72 h` (exact: `interval '72 hours'`, not calendar days) |
+| Cleared by evidence | any `payment_event` with `attributed_invoice_id` in the suspension's scope and **`applied_at > claim_at` (strictly greater)** clears the suspension early. `applied_at` is read-only provider-authoritative evidence; Phase 2 never writes it |
+| Different invoice | a payment applied to an invoice **outside** an invoice-scoped claim's set does **not** clear it; for an account-scoped claim, a payment applied to **any** invoice of the account clears it |
+| Multiple invoices | each candidate invoice is evaluated against the scope above when its snapshot is built; `unverified_paid_claim_until` is therefore per snapshot (per target invoice) |
+| Expiry | when the window lapses without evidence, P6 stops holding; a `false_paid_claim` counter is a P5 metric concern |
+| Sweep trigger | P4; Phase 2 only computes the snapshot field |
+
+## 5.7 Future-state fields — P7 / P8 in Phase 2 **[DD]**
+
+P7 (`active_ptp`) and P8 (`active_payment_link`) depend on state whose tables/writers belong to P3/P4. Phase 2
+implements the kernel semantics and tests them with fixture snapshots, but **never invents that state**: the
+assembler sets `active_ptp = None` (no `promise_to_pay` table) and `active_payment_link = None` (no
+`EXECUTED` actions exist), exactly as typed in §1.3. No Phase 2 code writes `promise_to_pay`, `payment_event`,
+or any provider state.
+
+## 5.8 Decision-pipeline transaction — T2 isolation decision **[DD]**
+
+T2 = `validate → decide → create action` (`W08 → [W11] → W09 → W10`) in **one transaction**. Correctness does
+**not** depend on `SERIALIZABLE`: W09 takes `SELECT … FOR SHARE` on the target invoice before reading
+`v_invoice_outstanding`, which conflicts with W05's `FOR UPDATE`, so a payment cannot be applied concurrently
+between the CP5 check and commit; the per-day uniques (`uq_decision_validation_day`, `uq_decision_unlinked_day`,
+`uq_action_decision`, IK1) make duplicate pipelines lose deterministically — the loser returns `AlreadyDecided` referencing the
+winner's rows (§12.2), never a second decision. **T2 therefore runs at
+`READ COMMITTED` deliberately.** (T6 reconciliation, §8.4, remains `SERIALIZABLE` — that is P4.) A stale
+*snapshot* (assembled in an earlier read-only transaction) is caught by W09's `cp5_amount_mismatch`; the pipeline
+re-assembles **once** and retries the whole T2; a second mismatch surfaces as `PipelineRetryExhausted` with no
+partial state. T2 is orchestrated by `pipeline/run.py` (§5.3); `policy/` and `actions/` never host it.
 
 ---
 
@@ -690,6 +871,12 @@ Everything in §6 is **[DD]** unless marked.
 W01–W25 (29 functions, §6.6). (2) M: `baaki_app` may `INSERT`; `UPDATE` exactly §6.4A; no `DELETE`.
 (3) C: no runtime DML; `kill_switch` via W21a/b only; `provider_secret` unreadable by any
 application role. (4) R: `SELECT`. (5) **No role holds `DELETE` on any table.**
+
+**Terminology.** Throughout this document, "no role holds *X*" / "no role can *X*" means **no application/project
+role** — the six roles of §6.2 — holds or can do *X*; state changes occur only through the authorized writer paths
+(§6.6). A PostgreSQL **superuser** bypasses grants by definition; it is not a project role, is used only for
+bootstrap (`bootstrap/roles.sql`), and is outside the runtime trust model. Where a writer must hold even against
+a superuser caller, the writer asserts `session_user` itself (H17, e.g. W12).
 
 Schemas: `baaki` (tables, views), `baaki_write` (writers). `public` stripped. Extension: `pgcrypto`
 **[IMPL]** for HMAC inside W02.
@@ -759,7 +946,8 @@ established — **TEC** = trusted execution context (`session_user`), **META** =
 | `organization.kill_switch` | →FALSE | **W21b** | **`ops` only** | P4 | **H** | TEC + META | — |
 | `account.opt_out` | →TRUE | **W12** | **`ops` only** | P2 | **H** | TEC + META | Immutable in P1 |
 | `account.opt_out`, `contact.opted_out` | →FALSE | **none** | — | — | **Monotonic** | — | — |
-| `contact.opted_out` | →TRUE (inbound) | **W11** | `app` (`policy/`) | P2 | **E** | `validation_id` | Immutable in P1 |
+| `contact.opted_out` | →TRUE (inbound, TREATMENT validation) | **W11** | `app` (`policy/`) | P2 | **E** | `validation_id` | Immutable in P1 |
+| `contact.opted_out` | →TRUE (inbound, any arm, deterministic detector) | **W11b** | `app` (`reconcile/` ingestion) | **P4** | **E** | `restriction_event_id` | — (§6.18.1) |
 | `contact.opted_out` | →TRUE (human) | **W12** | **`ops`** | P2 | **H** | TEC + META | — |
 | `*.opted_out_by_role`, `opted_out_source`, `opted_out_note` | set once | W11/W12 | as above | P2 | — | TEC/META | — |
 | `invoice.state` | insert `OPEN` | W01 | `app` | P1 | A | — | — |
@@ -829,8 +1017,9 @@ from function bodies); every human-only column's writer has `EXECUTE` for `baaki
 | W08 | `record_validation_result(proposal_id, …)` | `validation_result` (derives trace/account/date) | ✓ | — | — | — | P1 | `UNIQUE(proposal_id)` |
 | W09 | `record_policy_decision(...)` | `policy_decision` (derives when linked) | ✓ | — | — | — | P1 | `UNIQUE(validation_id, date)` / partial unique for unlinked |
 | W10 | `create_recovery_action(decision_id, action_id, idempotency_key, expires_at, now)` | `recovery_action` (+ `outbox` if `ALLOW`) | ✓ | — | — | — | P1 | `UNIQUE(decision_id)`; key collision with another decision → inserts a `SUPERSEDED_DUPLICATE` row **carrying the same key** (allowed by the partial unique index, IK1), returns the original `action_id`, no outbox row |
-| W11 | `opt_out_contact_from_evidence(contact_id, validation_id)` | `contact.opted_out=TRUE` + `_by_role='baaki_app'`, `_source='INBOUND_UNSUBSCRIBE'` | ✓ | — | — | — | P2 | idempotent |
-| **W12** | `opt_out_by_operator(account_id\|contact_id, actor_note)` **H** | `account.opt_out` or `contact.opted_out` = TRUE; `_by_role=session_user`, `_note` | — | **✓** | — | — | P2 | idempotent |
+| W11 | `opt_out_contact_from_evidence(contact_id, validation_id)` — evidence kind **validation** (TREATMENT interpretation `PASS`, intent `UNSUBSCRIBE`) | `contact.opted_out=TRUE` + `_by_role='baaki_app'`, `_source='INBOUND_UNSUBSCRIBE'`, `_validation_id` | ✓ | — | — | — | P2 | idempotent |
+| W11b | `opt_out_contact_from_restriction_event(contact_id, restriction_event_id)` — evidence kind **restriction event** (arm-independent, model-independent; §6.18) | same columns, `_source='INBOUND_RESTRICTION'`, `_restriction_event_id` | ✓ | — | — | — | **P4** | idempotent |
+| **W12** | `opt_out_by_operator(p_account_id uuid, p_contact_id uuid, p_actor_note text)` — exactly one id non-null (XOR, else `RAISE`) **[P2-D9, locked]** **H** | `account.opt_out` or `contact.opted_out` = TRUE; `_by_role=session_user`, `_note` | — | **✓** | — | — | P2 | idempotent |
 | W13 | `advance_invoice_aging(business_date)` | aging states only | ✓ | — | — | — | P3 | idempotent per date |
 | W14a | `open_dispute_from_evidence(invoice_id, validation_id)` | `dispute`; `invoice→DISPUTED`; PTP suspend | ✓ | — | — | — | P3 | partial unique → raises |
 | **W14b** | `open_dispute_by_operator(invoice_id, reason, actor_note)` **H** | same; `opened_by_role=session_user` | — | **✓** | — | — | P3 | same |
@@ -892,14 +1081,21 @@ when unlinked, accepts them. `trg_decision_linkage` (BEFORE INSERT) independentl
 it plus `invoice.account_id = NEW.account_id`. W10 copies from the decision;
 `trg_action_type_matches_decision` verifies.
 
-**Account-level proposal → invoice-level decision (SC1–SC6):** the proposal is scope only. Check 10
-resolves `invoice_refs` by exact number against the **account's own** invoices (else
-`INVOICE_REF_UNRESOLVED`). `candidate_invoice_ids` = the account's invoices with `state ≠ PAID` and
-outstanding > 0, read from the DB. Kernel selects deterministically: sole resolved ref ∈ candidates →
-it; else `proposal.invoice_id ∈ candidates` → it; else greatest `days_overdue` (ties: outstanding,
-then id); else `BLOCK no_target_invoice`. W09 asserts `invoice_id ∈ candidates` (P13); trigger
-asserts account membership. A model reference can only narrow among invoices the account already
-owns.
+**Account-level proposal → invoice-level decision (SC1–SC7):** the proposal is scope only.
+
+| Rule | Statement | Enforced |
+|---|---|---|
+| SC1 | `proposal.invoice_id` and `parsed.invoice_refs` are hints. Check 10 resolves `invoice_refs` by **exact invoice-number match against the account's own invoices**; unresolvable ⟹ `INVOICE_REF_UNRESOLVED` (HARD). A reference to another account's invoice is by construction unresolvable | Validator [P2] |
+| SC2 | `candidate_invoice_ids` = the account's invoices with `state ≠ PAID` and `v_invoice_outstanding > 0`, ordered `(days_overdue desc, outstanding desc, invoice_id asc)`, read from the database — never from the proposal | Assembler [P2] |
+| SC3 | `select_target(candidates, resolved_ids, hint)` — pure: sole resolved id ∈ candidates → it; else `hint ∈ candidates` → it; else first of the ordered candidates; **else `None`**. Runs between validator checks 12 and 13 so the SOFT amount check (14) has a target | Kernel-owned pure function [P2] |
+| SC4 | `snapshot.target_invoice_id ∈ candidate_invoice_ids` | `AccountSnapshot` contract (P1) |
+| SC5 | `decision.invoice_id` belongs to `decision.account_id` | `trg_decision_linkage` (P1) |
+| SC6 | A model reference can only narrow among invoices the account already owns | consequence of SC1–SC5 |
+| **SC7** | **No eligible candidate ⟹ no decision.** When SC2 yields an empty set (or SC3 returns `None`): **no `policy_decision` row, no `recovery_action`, no `outbox` row** is created; existing `agent_proposal` / `validation_result` rows remain as the audit evidence; the account is **out of scope for that decision day**. P13 is **not** relaxed — a `BLOCK` may never reference a non-candidate invoice merely to record itself. The pipeline returns `Ineligible(account_id, business_date, reason='no_candidates')` (in-memory result, logged, not persisted in P2) | Pipeline [P2]; W09 P13 |
+
+**Objective test (SC7):** for every `(account, business_date)` whose candidate set is empty, `policy_decision`
+has zero rows for that account and date; a proposal + validation for such an account persists unchanged; W09
+called directly with an empty `candidate_invoice_ids` raises `invoice_not_candidate`.
 
 ## 6.9 CanonicalPayload restrictions — W09 enforcement
 
@@ -956,6 +1152,20 @@ migration-only. TPL1 channel match · TPL2 action_type match · TPL3 active · T
 purpose)` allowed pairs (registry CHECK) · TPL5 registered; **executor resolves only by registry
 lookup, no interpretation, unregistered ⟹ `FAILED_TERMINAL`**. Kernel → `BLOCK template.incompatible`;
 W09 → `RAISE`; DB → FK/CHECK.
+
+**Template seed set v1 [P2-D10, locked]** — migration `0006_seed_templates`; `body_hash = sha256(config/templates/<template_id>.txt)`:
+
+| `template_id` | `channel` | `action_type` | `purpose` |
+|---|---|---|---|
+| `tpl.reminder.email.v1` | EMAIL | SEND_REMINDER | REMINDER |
+| `tpl.reminder.sms.v1` | SMS | SEND_REMINDER | REMINDER |
+| `tpl.nudge.email.v1` | EMAIL | SEND_REMINDER | COURTESY_NUDGE |
+| `tpl.link.email.v1` | EMAIL | SEND_PAYMENT_LINK | PAYMENT_LINK |
+| `tpl.dispute.email.v1` | EMAIL | REQUEST_DISPUTE_DETAILS | DISPUTE_DETAILS_REQUEST |
+| `tpl.installment.email.v1` | EMAIL | PROPOSE_INSTALLMENT_PLAN | INSTALLMENT_PROPOSAL |
+
+All six satisfy TPL4; `version = 1`, `active = true`. No WHATSAPP template exists in v1, so a WHATSAPP
+`ActionChoice` is blocked by P11 deterministically.
 
 ## 6.15 Tier-3 forbidden capabilities — F1–F7
 
@@ -1075,9 +1285,30 @@ account.
 **The LLM never mutates opt-out:** `baaki_agent` cannot execute W11/W12; `agent/` cannot import them;
 W11 needs a validator-produced `validation_id`.
 
-**Clearing: monotonic. No writer, no role, no path sets `opt_out`/`opted_out` back to FALSE.**
+**Clearing: monotonic.** No writer sets `opt_out`/`opted_out` back to FALSE, and **no application/project role
+(§6.2) holds `UPDATE` on those columns; state changes occur only through the authorized writer paths** (W11, W12;
+W11b in P4). OO1–OO3 CHECKs make a flag without provenance unrepresentable for any writer, including a superuser.
 `UNIQUE(account_id, channel, address_hash)` prevents re-adding the address. System behaviour, not a
 compliance claim. **P1:** columns seeded, immutable at runtime.
+
+### 6.18.1 Arm-independent restriction events — contract **[DD]**
+
+> **Inbound restriction events are arm-independent. An inbound unsubscribe/restriction MUST be able to reach
+> the authoritative opt-out writer regardless of experiment arm, LLM availability, or model interpretation.
+> Opt-out never depends on TREATMENT-arm LLM execution.**
+
+W11's evidence (a `validation_result`) exists only in the `TREATMENT` arm. Therefore a second evidence kind is
+defined now and built in P4:
+
+| Element | Contract |
+|---|---|
+| Evidence table | `restriction_event` [P4, D-class]: `restriction_event_id PK`, `contact_id FK`, `account_id FK`, `message_id FK` (inbound message, P4), `raw_body_hash CHAR(64)` (**computed by the writer** from the stored inbound body), `matched_pattern_id TEXT` (id of the deterministic rule that fired), `matcher_version TEXT`, `detected_at`, `created_by_role` (= `session_user`) |
+| Detector | **`rules_agent.restriction.detect(text) -> RestrictionMatch \| None`** — a pure, versioned, closed pattern set (canonical `STOP`, `UNSUBSCRIBE`, `DO NOT CONTACT`, common Hinglish variants). **Defined and unit-tested in P2**; it uses no model and no network |
+| Writer (P4) | `record_restriction_event(...)` — `baaki_app` only; recomputes the hash from the stored message body and **re-runs the detector inside the function on the stored text** so a caller cannot assert a match that the deterministic matcher would not make |
+| Opt-out writer (P4) | **W11b** `opt_out_contact_from_restriction_event(contact_id, restriction_event_id)` — verifies the event exists, `contact_id` matches, contact ∈ account; sets `opted_out_source = 'INBOUND_RESTRICTION'`, `_by_role = 'baaki_app'`, `_restriction_event_id`. Idempotent |
+| Arm independence | the inbound path in P4 runs the detector on **every** inbound message for **every** arm **before** any model call; a match records the event and calls W11b. The `TREATMENT` path may additionally reach W11 via a validation; both paths are monotonic and idempotent, so double recording is harmless |
+| Kill switch / L4 | restriction handling is a restriction (safe direction) and runs under kill switch |
+| Phase 2 deliverables | the detector, the `RestrictionEvent` contract (Pydantic), `opt_out_source` enum value `INBOUND_RESTRICTION`, and contract tests. **No ingestion, no `message`/`restriction_event` table, no W11b in P2** |
 
 ## 6.19 Kill-switch authority
 
@@ -1200,7 +1431,12 @@ secret the app never holds (database-verified); sweep = TLS + API credential + h
 
 ---
 
-# 7. Model-Provider Boundary **[P2]**
+# 7. Model-Provider Boundary **[P2b — separately gated; not part of Phase 2]**
+
+**Phase split [DD]:** Phase 2 (§13.2) contains the deterministic policy kernel and the **provider-neutral,
+offline** call-1/call-2 *schemas* the validator needs. The provider protocol (`providers/llm/base.py`), the fixture
+replayer, the concrete OpenAI adapter, the `agent/` runtime, and every network model call belong to **P2b**,
+a later phase with its own approval gate. No Phase 2 code imports a vendor SDK or opens a socket.
 
 **Two calls [DD].** Call 1 Interpreter — required; deterministic logic is genuinely insufficient
 for code-switched contextual replies; measured against a regex baseline (§11). Call 2 Proposer —
@@ -1261,6 +1497,7 @@ plain `BIGINT` (may be 0). No float/`NUMERIC`/`MONEY`; `tests/arch/test_no_float
 | `promise_to_pay` | D | `ptp_id` | partial `UNIQUE(invoice_id) WHERE state IN ('ACTIVE','DUE')`; `UNIQUE(validation_id)`; `trg_ptp_verdict_writer` | P3 |
 | `dispute` | D | `dispute_id` | partial `UNIQUE(invoice_id) WHERE state IN ('RAISED','UNDER_REVIEW')` | P3 |
 | `provider_call` | D | `call_id` | append-only | P4 |
+| `restriction_event` | D | `restriction_event_id` | `raw_body_hash` computed by writer; `UNIQUE(message_id)`; FK `contact_id`, `account_id`, `message_id` (§6.18.1) | P4 |
 | `message` | D | `message_id` | `UNIQUE(action_id, direction) WHERE direction='OUTBOUND'` | P4 |
 | `idempotency_record` | M | `key` | | P4 |
 | `audit_event` | D | `audit_id` | `IDX(trace_id)`; append-only | P4 |
@@ -1413,6 +1650,11 @@ regardless of outcome.
 static cadence · `L3` read-only (provider AUTH failure) · `L4` halted (kill switch / ledger
 breach). Level recorded on every decision. Never blocks on the model; never fails open.
 
+**Per-arm recording [P2-D7, locked]:** `degradation_level` names the engine that produced the `ActionChoice`:
+`CONTROL → L2` (static cadence) always; `RULES_ONLY → L1` (deterministic tree) always; `TREATMENT → L0` when a
+validated `L0` choice was used, `L1` when the pipeline fell back to the tree (validation `REJECT`, band D discard,
+or no proposal). P11 (`REJECT ⟹ ≠ L0`) follows directly. `L3`/`L4` are operational states (P4).
+
 ## 12.2 Matrix
 
 | Failure | Response | Financial safety | Audit |
@@ -1434,6 +1676,15 @@ breach). Level recorded on every decision. Never blocks on the model; never fail
 | Kill switch activated | P0 `BLOCK`; claims refused; in-flight calls complete and record | No new provider call | `audit_event` |
 | Ledger invariant breach | **L4 via W21a (`reason='LEDGER_INVARIANT_BREACH'`, `actor_role='baaki_app'`)**; reads remain | Stop acting when truth is in question | alert |
 | Clock / DST | UTC + explicit org-tz business dates | Caps not evadable | business date on rows |
+| **Ruleset malformed / missing key / non-monotone cap / bad window / bad tz** [P2] | `RulesetInvalid` at load; process refuses to decide | Nothing executes without a valid ruleset | log |
+| **Ruleset hash mismatch** (decision recorded under a hash ≠ loaded) [P2] | Decision treated as stale; never acted on; re-decide under the current ruleset | No effect from a stale policy | both hashes logged |
+| **Snapshot hash mismatch / canonicalisation mismatch** (recomputed hash ≠ recorded) [P2] | `ContractViolation`; decision not written or not trusted | No write | — |
+| **Invalid `ActionChoice`** (unknown action, contact ∉ contactable set, template ∉ catalogue) [P2] | Kernel `BLOCK` (P2/P11) or `ContractViolation` before W09; never coerced | No write | `blocking_rules` |
+| **Stale candidate set** (invoice paid between assembly and W09) [P2] | W09 `cp5_amount_mismatch` / `invoice_not_candidate` → T2 rolls back → one re-assembly → retry; then `PipelineRetryExhausted` | No partial state | — |
+| **Cross-account invoice reference** [P2] | Check 10 `INVOICE_REF_UNRESOLVED` (account-scoped resolution); `trg_decision_linkage` as backstop | No decision on another account's invoice | reason code |
+| **No eligible candidate (SC7)** [P2] | No decision, no action, no outbox; proposal/validation remain | No financial state | in-memory `Ineligible` |
+| **Duplicate pipeline replay** (same invoice-day) [P2] | W09 hits `uq_decision_unlinked_day` (unlinked) or `uq_decision_validation_day` (linked) → `unique_violation` → the pipeline rolls back to its savepoint (the validations recorded in this run stay as audit evidence), looks up the winning row, commits nothing new, and returns **`AlreadyDecided(decision_id, action_id)`** — the existing rows. **Only these two constraints** mean "already decided"; any other unique violation propagates unchanged. W10 is not called, so no second action or outbox row can exist | Exactly one decision; exactly one dispatchable action | — |
+| **Retry after transaction rollback** [P2] | Whole T2 re-executed from a fresh snapshot; writers are idempotent by constraint; at most one automatic retry | No duplicate decision/action | attempt count logged |
 
 ---
 
@@ -1449,24 +1700,25 @@ create the code that *decides* or *orchestrates* on it.
 | Phase | Builds | Does not build |
 |---|---|---|
 | **P1 Foundation** | Types (`Paise`, `ClaimedPaise`, `RawJson`, enums, ids, `Clock`, errors); contracts §1 + union + token; **15 tables, 19 enums, 1 view, 5 triggers, 10 writers W01–W10, 6 roles, 1 extension**, grants; `from_decision`; idempotency key; arch/contract/db/redteam tests | Validator ladder, kernel rules, W11–W25, any transition, outbox worker, providers, reconciler orchestration, PTP, dispute, experiment, simulator, API, UI. (HMAC computation itself is inside W02 and therefore P1; the *receiver* that calls W02 is P4) |
-| **P2 Policy** | Validator (16 checks, 20 reasons), ladder P0–P14, `min()` cap, ruleset hashing, snapshot assembler incl. `candidate_invoice_ids`, SC1–SC4, TPL in kernel, kernel wired to token; LLM adapter + fixtures; call-1/2 schemas; `RULES_ONLY` interpreter + tree; **W11, W12; +1 enum** | Execution |
+| **P2 Domain + Deterministic Policy Kernel** | Domain contracts (`InterpretationV1`, `ActionProposalV1` — provider-neutral, offline; `NormalizedActionProposal`; `Ruleset`; `ActionChoice`; `DecisionContext`; `CandidateInvoice`; `ValidationInput`; `RestrictionEvent`); validator (16 checks, 20 reasons); deterministic kernel (ladder P0–P14, §4.3 truth table, §1.5.1 derivations, TPL1–TPL3); ruleset loader + hashing (§5.5); snapshot assembler + `select_target` (SC1–SC7); `CONTROL` arm; `RULES_ONLY` arm (`rules_agent/` keyword interpreter, date/amount grammar, decision tree, restriction detector); `TREATMENT` arm **as a strategy boundary only** (consumes an already-validated proposal; makes no model call); opt-out authority **W11, W12**, `opt_out_source` enum (`INBOUND_UNSUBSCRIBE`, `INBOUND_RESTRICTION`, `HUMAN`), opt-out metadata columns; template registry seed; decision pipeline `validate → decide → create action` (T2, §5.8) orchestrated by `pipeline/` (§5.3); tests. **Phase 2 creates authoritative action records only — it executes nothing and delivers nothing** | OpenAI SDK, any provider adapter, network model calls, LLM runtime (`agent/`), `providers/llm/*` (→ P2b); execution, transitions, communication, ingestion, PTP/dispute tables, experiment |
+| **P2b Model-Provider Boundary** (separately gated) | `providers/llm/base.py` protocol; fixture replayer for CI; concrete OpenAI adapter; `agent/` runtime that records proposals via W07 as `baaki_agent`; prompt templates; injection corpus tests. Adds **0 tables, 0 enums, 0 writers** | Anything that decides or executes |
 | **P3 Promise** | **2 tables, 3 enums, 8 writers (W13, W14a/b, W15, W16, W17a/b, W18), 1 trigger**; PTP + dispute + aging behaviour; reconciler PTP evaluation | Provider calls |
-| **P4 Execution & Reconciliation** | **4 tables, 2 enums, 8 writers (W19a/b, W20, W21a/b, W22–W24)**; outbox worker; Razorpay adapter POS-4; HMAC verifier; parser (PE5); attribution; sweep orchestration; ops scripts (kill switch, reattribution, approvals); API | Experiment |
+| **P4 Execution & Reconciliation** | **5 tables (incl. `restriction_event`), 2 enums, 9 writers (W19a/b, W20, W21a/b, W22–W24, W11b)**; outbox worker; Razorpay adapter POS-4; HMAC verifier; parser (PE5); attribution; sweep orchestration; ops scripts (kill switch, reattribution, approvals); API | Experiment |
 | **P5 Evaluation** | **1 table, 1 writer W25, 1 role**; arm-blind simulator + fake provider; virtual-clock runner; metrics, bootstrap, A/A, SRM, MDE, pre-registration; dashboard; live sim-blind test | — |
 
 ## 13.3 Object counts — phase-qualified
 
-| Object | P1 | +P2 | +P3 | +P4 | +P5 | **Final MVP** |
+| Object | P1 | +P2 | +P2b | +P3 | +P4 | +P5 | **Final MVP** |
 |---|---|---|---|---|---|---|
-| Tables | **15** | 0 | 2 | 4 | 1 | **22** |
-| Enums | **19** | 1 (`opt_out_source`) | 3 (`ptp_state`, `dispute_state`, `dispute_resolution`) | 2 (`provider_call_status`, `message_direction`) | 0 | **25** |
-| Views | **1** | 0 | 0 | 0 | 0 | **1** |
-| Writer functions | **10** (W01–W10) | 2 (W11, W12) | 8 (W13, W14a/b, W15, W16, W17a/b, W18) | 8 (W19a/b, W20, W21a/b, W22–W24) | 1 (W25) | **29** |
-| — of which human-only (`baaki_ops`) | 0 | 1 (W12) | 3 (W14b, W15, W17b) | 3 (W19b, W20, W21b) | 0 | **7** |
-| Triggers | **5**: `trg_ledger_balanced`, `trg_ledger_one_invoice_per_txn`, `trg_action_requires_executable_decision`, `trg_action_type_matches_decision`, `trg_decision_linkage` | 0 | 1 (`trg_ptp_verdict_writer`) | 0 | 0 | **6** |
-| Roles | **6** (`owner`, `migrate`, `app`, **`ops`**, `agent`, `sim`) | 0 | 0 | 0 | 1 (`readonly`) | **7** |
-| Extensions | **1** (`pgcrypto`) | 0 | 0 | 0 | 0 | **1** |
-| Schemas | **2** (`baaki`, `baaki_write`) | 0 | 0 | 0 | 0 | **2** |
+| Tables | **15** | 0 | 0 | 2 | 5 (incl. `restriction_event`) | 1 | **23** |
+| Enums | **19** | 1 (`opt_out_source`: `INBOUND_UNSUBSCRIBE`, `INBOUND_RESTRICTION`, `HUMAN`) | 0 | 3 (`ptp_state`, `dispute_state`, `dispute_resolution`) | 2 (`provider_call_status`, `message_direction`) | 0 | **25** |
+| Views | **1** | 0 | 0 | 0 | 0 | 0 | **1** |
+| Writer functions | **10** (W01–W10) | 2 (W11, W12) | 0 | 8 (W13, W14a/b, W15, W16, W17a/b, W18) | 9 (W19a/b, W20, W21a/b, W22–W24, **W11b**) | 1 (W25) | **30** |
+| — of which human-only (`baaki_ops`) | 0 | 1 (W12) | 0 | 3 (W14b, W15, W17b) | 3 (W19b, W20, W21b) | 0 | **7** |
+| Triggers | **5**: `trg_ledger_balanced`, `trg_ledger_one_invoice_per_txn`, `trg_action_requires_executable_decision`, `trg_action_type_matches_decision`, `trg_decision_linkage` | 0 | 0 | 1 (`trg_ptp_verdict_writer`) | 0 | 0 | **6** |
+| Roles | **6** (`owner`, `migrate`, `app`, **`ops`**, `agent`, `sim`) | 0 | 0 | 0 | 0 | 1 (`readonly`) | **7** |
+| Extensions | **1** (`pgcrypto`) | 0 | 0 | 0 | 0 | 0 | **1** |
+| Schemas | **2** (`baaki`, `baaki_write`) | 0 | 0 | 0 | 0 | 0 | **2** |
 
 P1 tables (15): `organization`, `account`, `contact`, `template_registry`, **`provider_secret`**, `invoice`,
 `ledger_entry`, `payment_event`, `webhook_event`, `sweep_run`, `agent_proposal`, `validation_result`,
@@ -1554,7 +1806,7 @@ and tested. §6.17.
 | 1 | Every ledger rupee traces to its originating event | `e2e/test_trace_completeness` | `PAYMENT`/`REATTRIBUTION` lines → `payment_event` → verified evidence; `ISSUANCE` → invoice | P1 |
 | 2 | Every payment traces to a decision or is explicitly unattributed | same | `attributed_invoice_id` → action → decision, or `UNATTRIBUTED` + suspense line | P4 |
 | 3 | Every decision traces to the interpretation when AI was involved | same | `arm=TREATMENT ⟹ proposal_id NOT NULL`; `raw_response` retrievable | P1 |
-| 4 | Every decision carries ruleset + snapshot hashes; replay reproduces | schema + `property/test_replay` | non-null; byte-identical replay | P1 / P2 |
+| 4 | Every decision carries ruleset + snapshot hashes; kernel is deterministic | schema + `property/test_determinism` | hashes non-null; identical `(snapshot, ruleset, choice)` → identical canonical decision payload; recorded hashes equal recomputed hashes | P1 / P2 |
 | 5 | Red-team rows of §6.16 hold | `pytest tests/redteam/` | every P1-tagged row passes | P1 |
 | 6 | Import boundaries hold | `arch/test_import_graph` | 0 forbidden edges | P1 |
 | 7 | **I10 table privileges** | `db/test_table_grants` | app roles hold no DML on F/D tables; `INSERT` only on `account`, `contact` (`baaki_app`); `baaki_ops` holds no DML at all; `provider_secret` unreadable by every application role | P1 |
@@ -1588,6 +1840,12 @@ and tested. §6.17.
 | 32 | No float money | `arch/test_no_float_money` | 0 in guarded packages | P1 |
 | 33 | No network in default run | `arch/test_no_network` | static + runtime guard; `@network` excluded | P1 |
 | 34 | Dependencies exact and reproducible | `arch/test_dependencies` + lock check | pyproject = approved list; forbidden absent; lockfile hashed, unchanged | P1 |
+| 36 | **SC7 — no eligible candidate ⟹ no decision** | `pipeline/test_ineligible` | zero `policy_decision` rows for accounts with empty candidate sets; proposal/validation rows persist; W09 with empty candidates raises | P2 |
+| 37 | **Every one of the 20 validator reasons has a named fixture proving reachability; every one of the 16 checks has positive + negative coverage** | `validate/test_ladder` | 20 fixtures × reason, 16 × 2 | P2 |
+| 38 | **Ruleset fails closed** | `policy/test_ruleset` | each §5.5 fault → `RulesetInvalid`; hash = sha256(file bytes); loaded object frozen | P2 |
+| 39 | **Tier-cap truth table** | `kernel/test_tier_cap` | every row of §4.3 reproduced; property `authority_tier(final) <= catalogue_tier(requested_action)` over 10⁴ cases; no `L0` choice `< 0.50` reaches W09 | P2 |
+| 40 | **Arm-independent restriction contract** | `rules_agent/test_restriction` + contract tests | detector is pure and versioned; `RestrictionEvent` contract validates; W11b/`restriction_event` do **not** exist yet (P4) | P2 (contract) / P4 (live) |
+| 41 | **P2 executes nothing** | `arch/test_phase2_boundary` | after the P2 suite every `recovery_action` is in its initial state; `outbox.claimed_at` all `NULL`; no module imports `providers/`, vendor SDKs, or opens sockets | P2 |
 | 35 | Credential handling | structural + detector | env-only config (AST); fixtures `^<TEST_[A-Z_]+>$`; `.env` gitignored/absent; `.env.example` placeholders; **runtime section has no `MIGRATE`, `OWNER`, or `OPS` DSN and no webhook secret** (the secret lives only in `provider_secret`); known-prefix detector clean **(detector proves only known formats)** | P1 |
 
 ---
@@ -1614,7 +1872,57 @@ and tested. §6.17.
 
 # 17. Changes From v3.1 — Reconciliation Log
 
-## 17.0 v3.2.1 → v3.2.2 — idempotency uniqueness clarification only
+## 17.0.0 v3.3.1 → v3.3.2 — Phase 2 implementation reconciliation (documentation only)
+
+| # | Change | Sections |
+|---|---|---|
+| 1 | **T2 orchestrator location fixed as `src/baaki/pipeline/`** with its allowed/forbidden imports and the reason it sits outside `policy/` and `actions/` (each is forbidden one of the two writers T2 must call); `pipeline/` is the single module permitted to import both W09 and W10 | §5.3, §5.8, §13.2, App. B |
+| 2 | **`policy/ → rules_agent/` edge documented** (deterministic tree/interpreter only; reverse edge limited to `policy/{ruleset,schemas,validate.normalize}`; `policy/kernel ✗ rules_agent/`); `rules_agent/` forbidden set stated | §5.3 |
+| 3 | Privilege wording made precise: "no role holds/can" ⟹ no **application/project role**; superuser named as outside the runtime trust model; opt-out clearing statement reworded accordingly | §6.3, §6.18 |
+| 4 | Appendix B lists migrations 0004–0006, `config/`, and the implemented `policy/` and `pipeline/` layout | App. B |
+| 5 | *(final remediation)* Duplicate-replay contract made exact: savepoint, the two decision uniques, `AlreadyDecided` return; §18.2 status updated to "PHASE 2 IMPLEMENTED — awaiting final verification and commit approval" | §5.8, §12.2, §18.2 |
+
+No policy value (§5.4), locked decision (§18.1.1), invariant (incl. `authority_tier(final) <= catalogue_tier(requested_action)`), grant, writer, table, contract, or
+Phase 1 behaviour changed. No source, migration, test, dependency, or lockfile changed in this revision.
+
+## 17.0 v3.3.0 → v3.3.1 — Phase 2 decisions locked
+
+| # | Change | Sections |
+|---|---|---|
+| 1 | Phase 2 decisions renamed **P2-D1…P2-D11** (the ids D1/D2 were already taken by the v3.2 dispute-auto-open and BUYER_CREDIT decisions in §18.1); all eleven **locked**; §18.2 now `NONE` | §18.1.1, §18.2 |
+| 2 | §5.4 status PROPOSED/UNAPPROVED → **LOCKED**; "Proposed value" → "Locked value" | §5.4, §4.3 |
+| 3 | P2-D3 `normalized` shape for `ACTION_PROPOSAL` added | §1.2 |
+| 4 | P2-D4 validator signature `validate(proposal, source_text, account_facts)` with hash binding; P2-D8 SC3 placement restated | §4.1 |
+| 5 | P2-D7 per-arm `degradation_level` recording | §12.1 |
+| 6 | P2-D9 W12 exact signature with XOR | §6.6 |
+| 7 | P2-D10 template seed set v1 (six ids) | §6.14 |
+| 8 | P2-D1 wording corrected: TOML chosen over the YAML naming used in v3.1's Appendix B (the current Appendix B lists no policy file) | §5.4, §18.1.1 |
+
+No P1 object, contract, grant, or invariant changed. No new dependency (TOML is stdlib).
+
+## 17.0.1 v3.2.2 → v3.3.0 — Phase 2 correction pass
+
+| # | Correction | Sections |
+|---|---|---|
+| B1 | P2 scope split: **P2** = domain + deterministic kernel (provider-neutral, offline schemas only); **P2b** = model-provider boundary (protocol, fixtures, OpenAI adapter, `agent/` runtime), separately gated | §7 tag, §13.2 (P2 row rewritten, P2b row added), §13.3 (+P2b column) |
+| B2 | `BLOCK no_target_invoice` removed; **SC7**: no eligible candidate ⟹ no decision/action/outbox, audit rows remain, account out of scope for the day; P13 unchanged | §1.3, §1.4 P13, §6.8.3 (SC table), §12.2, §15 #36 |
+| G-1 | **Arm-independent restriction events**: deterministic detector (P2), `RestrictionEvent` contract (P2), `restriction_event` table + `record_restriction_event` + **W11b** (P4); `opt_out_source` gains `INBOUND_RESTRICTION`; invariant "opt-out never depends on TREATMENT-arm LLM execution" | §6.18.1, §6.6 (W11b row), §6.4B, §8.2, §13.2/13.3 (P4 tables 5, writers 9; MVP 23 tables / 30 writers), §15 #40 |
+| D2 | Policy constants recorded as PROPOSED/UNAPPROVED (**locked in v3.3.1 as P2-D2**) with exact semantics (half-open bands, Sunday closed, no holiday calendar, `organization.timezone`, `09:00 ≤ t < 19:00`) | §5.4 |
+| P13/tier-cap | Prose replaced by a **deterministic truth table** with the I4 proof obligation `authority_tier(final) <= catalogue_tier(requested_action)`; band D discards the L0 choice → L1 fallback | §4.3 |
+| Transaction wording | `validate → decide → create action`; "Phase 2 creates authoritative action records only — executes nothing, delivers nothing" | §3.1.1, §5.8, §13.2 |
+| RecoveryAction | Explicit Phase 2 forbidden-transition table (creation only) | §3.1.1 |
+| P7/P8 | Future-state fields represented as `None`/`[]`; no invented state; `payment_event.applied_at` read-only | §1.3 (S4, S5), §5.7 |
+| Paid claim | Exact derivation: scope, latest, 72 h interval, strict `applied_at > claim_at`, different-invoice and multi-invoice behaviour | §5.6 |
+| Snapshot hash | Hashes **bind**, kernel **is deterministic**; no "replay reproduces" wording | §0.3 I9, §1.4 P6, §15 #4 |
+| Contact count | **Intent-count basis** stated; not a delivered-message metric | §1.3 |
+| Terminology | 16 validator checks vs 15 ladder levels (P0–P14) stated explicitly | §4.2 |
+| Ruleset | Fail-closed loading rules; hash of exact bytes; frozen | §5.5 |
+| Isolation | T2 at `READ COMMITTED` **deliberately**, correctness via `FOR SHARE` + CP5 + uniques; T6 stays `SERIALIZABLE` | §5.8 |
+| Failure semantics | 9 Phase 2 rows added | §12.2 |
+
+Phase 1 implementation (`b10ebe0`) is unaffected: no P1 table, writer, trigger, grant, or contract changed.
+
+## 17.0.2 v3.2.1 → v3.2.2 — idempotency uniqueness clarification only
 
 | # | v3.2.1 | v3.2.2 | Reason |
 |---|---|---|---|
@@ -1622,7 +1930,7 @@ and tested. §6.17.
 
 No other section changed. The implementation was **not** changed to a plain unique constraint.
 
-## 17.0.1 v3.2 → v3.2.1 — GAP-1 addendum only
+## 17.0.3 v3.2 → v3.2.1 — GAP-1 addendum only
 
 | # | v3.2 | v3.2.1 | Reason |
 |---|---|---|---|
@@ -1696,11 +2004,29 @@ while we check.
 is posted entirely to `BUYER_CREDIT:<account_id>` by W05's capping step. Rationale: attribution was
 explicit; the buyer's money should sit against the buyer, not in general suspense.
 
+## 18.1.1 Phase 2 decisions — LOCKED (v3.3.1)
+
+Ids are prefixed `P2-` because `D1`/`D2` above (v3.2) are distinct, earlier decisions.
+
+| # | Decision | Locked value / semantics | Consistent with | Section |
+|---|---|---|---|---|
+| **P2-D1** | Ruleset file format | `config/policy.v1.toml`, parsed with stdlib `tomllib`; **no dependency**; `policy_hash = sha256(exact file bytes)` | §5.5 fail-closed loading; DoD "no new dependency"; v3.1 Appendix B's `.yaml` naming superseded | §5.4, §5.5 |
+| **P2-D2** | Policy constants v1 | Bands A `[0.85,1.00]`, B `[0.70,0.85)`, C `[0.50,0.70)`, D `[0.00,0.50)` · quiet window `09:00 ≤ local_time < 19:00`, Mon–Sat, **Sunday closed**, **no holiday calendar**, `organization.timezone` (IANA) · caps 3/account, 2/invoice per 7 d (intent-count) · paid-claim TTL 72 h · link active window 24 h · PTP horizon 30 d · PTP grace 2 business days · PTP nudge 2 days before due · control cadence `[3, 7, 15]` days overdue · rules-only link/reminder thresholds 15 / 3 | §4.2 P7/P8, §2.3, §5.6, §10.2; §4.3 truth table (D discard → L1, C → SUPPRESS, B link → REQUIRE_APPROVAL, A retains authority); I4 `authority_tier(final) <= catalogue_tier(requested_action)` | §5.4, §4.3 |
+| **P2-D3** | `normalized` for `kind = ACTION_PROPOSAL` | `{action, contact_id, channel, template_id, followup_days, effective_confidence}`; no money field | additive to §1.2; A3/CP6 unaffected | §1.2 |
+| **P2-D4** | Validator input | `validate(proposal, source_text, account_facts)`; asserts `sha256(source_text) = input_hash`, else `SCHEMA_VIOLATION` | checks 07–08 need the source bytes; `input_hash` already exists on `agent_proposal` | §4.1 |
+| **P2-D5** | P9 basis | **intent-count**: outbound `recovery_action` rows in `{QUEUED, EXECUTING, EXECUTED, CONFIRMED}` within 7 d; never reported as "messages sent" | §1.3 | §1.3, §5.4 |
+| **P2-D6** | Paid-claim derivation | exactly §5.6 (scope, latest, `interval '72 hours'`, strict `applied_at > claim_at`) | §4.2 P6; `payment_event.applied_at` read-only | §5.6 |
+| **P2-D7** | `degradation_level` per arm | `CONTROL → L2`; `RULES_ONLY → L1`; `TREATMENT → L0`, fallback `L1` | §12.1 ladder; P11 | §12.1 |
+| **P2-D8** | SC3 placement | between validator checks 12 and 13 | §6.8.3 SC3 row; check 14 needs a target | §4.1, §6.8.3 |
+| **P2-D9** | W12 signature | `opt_out_by_operator(p_account_id uuid, p_contact_id uuid, p_actor_note text)`, exactly one id non-null | §6.18 (account-level human-only); H17/H18 | §6.6 |
+| **P2-D10** | Template seed set v1 | the six ids of §6.14 (EMAIL reminder, SMS reminder, EMAIL courtesy nudge, EMAIL payment link, EMAIL dispute details, EMAIL installment) | TPL4 pairs; migration-only rows | §6.14 |
+| **P2-D11** | Restriction evidence | `opt_out_source` gains `INBOUND_RESTRICTION`; **W11b** is a separate P4 writer (total 30) | §6.18.1; writer catalogue | §6.6, §6.18.1, §13.3 |
+
 ## 18.2 Requiring approval
 
-`NONE`. Implementation-plan choices (lock tooling, exact pins) belong to the Phase 1 plan, not to this
-document. The MVP limitation that `baaki_ops` is a shared operator credential (no per-person
-authentication) is a locked, stated limitation (§6.22), not an open decision.
+`NONE`. **Status: PHASE 2 IMPLEMENTED — awaiting final verification and commit approval.** No open architectural or
+policy decision remains; the plan (`docs/PHASE2_PLAN.md`) carries the same status.
+
 
 ---
 
@@ -1712,9 +2038,12 @@ proposal↔canonical diff) → execute or **`SUPPRESS`** → buyer responds → 
 # Appendix B — Repository Structure
 ```
 ├── bootstrap/roles.sql                 (superuser, once: 6 roles)  ·  bootstrap/secrets.sql (as owner: provider_secret)
-├── migrations/  0001_schema · 0002_write_functions · 0003_grants   (baaki_migrate → SET ROLE baaki_owner)
+├── migrations/  0001_schema · 0002_write_functions · 0003_grants · 0004_opt_out_metadata · 0005_opt_out_writers · 0006_seed_templates
+│              (baaki_migrate → SET ROLE baaki_owner)
+├── config/     policy.v1.toml (§5.4) · templates/<template_id>.txt (§6.14 body_hash source)
 ├── src/baaki/  domain/ contracts/ db/{models,writers/{proposal,validation,decision,action,ledger,payment,lifecycle,experiment}}
-│              ledger/ policy/{validate,kernel,rules} agent/ rules_agent/ actions/ providers/{llm,razorpay{,fake}}
+│              ledger/ policy/{ruleset,schemas,validate,kernel,arms,snapshot,optout} rules_agent/ pipeline/ (T2 orchestrator, §5.3)
+│              agent/ actions/ providers/{llm,razorpay{,fake}}
 │              reconcile/ experiment/ sim/ api/ ui/ scripts/ops (connects as baaki_ops; sole importer of db/writers/operator)
 └── tests/  arch/ contract/ runtime/ db/ property/ golden/ idempotency/ redteam/ e2e/ integration/(@network)
 ```

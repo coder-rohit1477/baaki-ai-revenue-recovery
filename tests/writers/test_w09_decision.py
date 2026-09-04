@@ -123,7 +123,7 @@ def test_cp5_template_contact_rules(owner, app):
              SendReminderPayload(contact_id=ids["contact"], channel=Channel.EMAIL, template_id=TemplateId("tpl.link.email.v1"))), [inv])  # T4 wrong action type
     _refused(app, "contact_invalid", exec_decision(ids, inv, ActionType.SEND_REMINDER,
              SendReminderPayload(contact_id=new_id(), channel=Channel.EMAIL, template_id=TemplateId("tpl.reminder.email.v1"))), [inv])
-    owner.execute(text("update baaki.contact set opted_out = true where contact_id=:c"), {"c": ids["contact"]}); owner.commit()
+    owner.execute(text("update baaki.contact set opted_out = true, opted_out_at = now(), opted_out_source = 'HUMAN', opted_out_by_role = 'baaki_ops' where contact_id=:c"), {"c": ids["contact"]}); owner.commit()
     _refused(app, "contact_invalid", exec_decision(ids, inv, ActionType.SEND_REMINDER,
              SendReminderPayload(contact_id=ids["contact"], channel=Channel.EMAIL, template_id=TemplateId("tpl.reminder.email.v1"))), [inv])
 

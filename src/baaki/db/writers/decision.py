@@ -26,7 +26,8 @@ def record_policy_decision(
         "SELECT baaki_write.record_policy_decision(:decision_id, :proposal_id, :validation_id, :trace_id, "
         ":account_id, :business_date, :invoice_id, CAST(:arm AS baaki.arm), CAST(:verdict AS baaki.verdict), "
         "CAST(:tier AS smallint), CAST(:action_type AS baaki.action_type), CAST(:payload AS jsonb), :defer_until, "
-        "CAST(:matched_rules AS text[]), CAST(:blocking_rules AS jsonb), :effective_confidence, :policy_version, "
+        "CAST(:matched_rules AS text[]), CAST(:blocking_rules AS jsonb), CAST(:effective_confidence AS numeric), "
+        ":policy_version, "
         ":kernel_version, :policy_hash, :snapshot_hash, CAST(:degradation_level AS baaki.degradation_level), "
         "CAST(:candidates AS uuid[]))",
         dict(decision_id=d.decision_id, proposal_id=d.proposal_id, validation_id=d.validation_id,

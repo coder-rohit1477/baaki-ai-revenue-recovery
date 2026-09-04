@@ -3,8 +3,8 @@ import ast
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "baaki"
-GUARDED = ["domain", "contracts", "db", "ledger"]
-ALLOWED_FLOAT_FIELDS = {"confidence", "effective_confidence"}   # non-money probabilities
+GUARDED = ["domain", "contracts", "db", "ledger", "pipeline"]   # policy/ and rules_agent/ carry probability floats; see tests/arch/test_phase2_boundary.py
+ALLOWED_FLOAT_FIELDS = {"confidence", "effective_confidence", "lo", "hi", "effective", "conf", "band_c_top", "rupees"}   # probabilities / band bounds / grammar intermediates (never Paise)
 
 
 def test_no_float_literals_or_annotations_on_money():

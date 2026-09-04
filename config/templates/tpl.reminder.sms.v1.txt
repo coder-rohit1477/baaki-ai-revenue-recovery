@@ -1,0 +1,3 @@
+Baaki template tpl.reminder.sms.v1
+Static body. Money, dates, invoice numbers and names are DB-substituted slots rendered in a later phase.
+Slots: {{invoice_number}} {{outstanding_rupees}} {{due_date}} {{payment_link}}

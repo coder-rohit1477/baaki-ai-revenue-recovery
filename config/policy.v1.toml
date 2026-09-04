@@ -1,0 +1,48 @@
+# Baaki policy constants v1 — ARCHITECTURE.md v3.3.1 §5.4 (LOCKED, P2-D2).
+# Loaded from exact bytes; policy_hash = sha256(this file). Changing any value is a new policy_version.
+policy_version = "policy.v1"
+
+contact_cap_account_7d = 3
+contact_cap_invoice_7d = 2
+paid_claim_ttl_hours = 72
+link_active_window_hours = 24
+ptp_horizon_days = 30
+ptp_grace_business_days = 2
+ptp_nudge_days_before_due = 2
+control_cadence_days_overdue = [3, 7, 15]
+
+[quiet_hours]
+# 09:00 <= local_time < 19:00 in organization.timezone; Sunday closed; no holiday calendar in v1.
+start = "09:00"
+end = "19:00"
+days = ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
+
+[rules_only]
+link_after_days_overdue = 15
+reminder_after_days_overdue = 3
+
+# Half-open bands; A includes 1.00. cap = maximum autonomous authority tier; "discard" drops an L0 choice.
+[[tier_cap.bands]]
+name = "A"
+lo = 0.85
+hi = 1.00
+cap = 1
+
+[[tier_cap.bands]]
+name = "B"
+lo = 0.70
+hi = 0.85
+cap = 1
+force_approval = ["SEND_PAYMENT_LINK"]
+
+[[tier_cap.bands]]
+name = "C"
+lo = 0.50
+hi = 0.70
+cap = 0
+
+[[tier_cap.bands]]
+name = "D"
+lo = 0.00
+hi = 0.50
+cap = "discard"

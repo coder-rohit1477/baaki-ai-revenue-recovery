@@ -13,7 +13,7 @@ from baaki.domain.enums import (
 
 
 def test_counts():
-    assert len(POSTGRES_ENUMS) == 19
+    assert len(POSTGRES_ENUMS) == 20
     assert len(RejectionReason) == 20 and len(ActionType) == 7 and len(ActionState) == 11 and len(InvoiceState) == 5
     assert set(ACTION_TIER.values()) == {0, 1, 2}          # tier 3 unrepresentable
     assert len(TEMPLATE_PAIRS) == 5

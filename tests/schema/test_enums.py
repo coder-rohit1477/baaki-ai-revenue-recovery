@@ -15,7 +15,7 @@ def test_enum_labels_match_python(su):
 def test_exactly_nineteen(su):
     names = {r[0] for r in su.execute(text(
         "select t.typname from pg_type t join pg_namespace n on n.oid=t.typnamespace where n.nspname='baaki' and t.typtype='e'"))}
-    assert names == set(POSTGRES_ENUMS) and len(names) == 19
+    assert names == set(POSTGRES_ENUMS) and len(names) == 20
 
 
 def test_gap1_values_exact(su):

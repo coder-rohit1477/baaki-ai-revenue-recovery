@@ -192,6 +192,14 @@ def queue_for_reason(reason: EscalationReason) -> AssigneeQueue:
     )
 
 
+class OptOutSource(StrEnum):
+    """§6.18 / §6.18.1 — how an opt-out was established. Monotonic; no clearing path exists."""
+
+    INBOUND_UNSUBSCRIBE = "INBOUND_UNSUBSCRIBE"
+    INBOUND_RESTRICTION = "INBOUND_RESTRICTION"
+    HUMAN = "HUMAN"
+
+
 class PaymentSource(StrEnum):
     WEBHOOK = "WEBHOOK"
     SWEEP = "SWEEP"
@@ -204,7 +212,8 @@ class AttributionMethod(StrEnum):
     HUMAN_REATTRIBUTION = "HUMAN_REATTRIBUTION"
 
 
-# Postgres enum name -> Python enum. Exactly 19 (§13.3). Tests assert label sets match pg_enum.
+# Postgres enum name -> Python enum. 19 in Phase 1 + opt_out_source in Phase 2 = 20 (§13.3).
+# Tests assert label sets match pg_enum.
 POSTGRES_ENUMS: Final[dict[str, type[StrEnum]]] = {
     "proposal_kind": ProposalKind,
     "parse_status": ParseStatus,
@@ -225,6 +234,7 @@ POSTGRES_ENUMS: Final[dict[str, type[StrEnum]]] = {
     "assignee_queue": AssigneeQueue,
     "payment_source": PaymentSource,
     "attribution_method": AttributionMethod,
+    "opt_out_source": OptOutSource,
 }
 
 # §6.15 — the seven forbidden capabilities. Tests assert none appears in any enum, payload,
