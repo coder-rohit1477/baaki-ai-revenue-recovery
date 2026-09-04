@@ -1,0 +1,31 @@
+{
+  "profiles_version": "profiles.v1",
+  "profiles": [
+    {"id": "P-OVERDUE-3", "description": "one invoice 3 days overdue; email + sms contacts", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL", "SMS"], "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 3, "outstanding_paise": 450000}]},
+    {"id": "P-OVERDUE-15", "description": "one invoice 15 days overdue; email + sms contacts", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL", "SMS"], "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-MULTI-INVOICE", "description": "two open invoices, one paid", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 20, "outstanding_paise": 250000},
+                                          {"number": "INV-2", "state": "DUE", "days_overdue": 0, "outstanding_paise": 120000},
+                                          {"number": "INV-0", "state": "PAID", "days_overdue": 40, "outstanding_paise": 0}]},
+    {"id": "P-SMS-ONLY", "description": "only an SMS contact; no link/dispute/installment templates on SMS", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["SMS"], "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-DISPUTED", "description": "invoice in DISPUTED state", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "invoices": [{"number": "INV-1", "state": "DISPUTED", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-PAID-CLAIM-PENDING", "description": "an unverified paid claim inside its 72h window", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "paid_claim_pending": true, "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-CONTACT-OPTED-OUT", "description": "the only contact is opted out", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "contact_opted_out": true, "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-ACCOUNT-OPTED-OUT", "description": "account-level human opt-out", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "account_opt_out": true, "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-NO-CANDIDATES", "description": "everything paid; SC7 ineligible", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "invoices": [{"number": "INV-1", "state": "PAID", "days_overdue": 0, "outstanding_paise": 0}]},
+    {"id": "P-KILL-SWITCH", "description": "organization kill switch on", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "kill_switch": true, "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-QUIET-HOURS", "description": "Sunday 11:00 local", "as_of": "2026-09-06T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]},
+    {"id": "P-CAPPED", "description": "7-day contact caps already reached", "as_of": "2026-09-01T11:00:00+05:30", "timezone": "Asia/Kolkata",
+     "channels": ["EMAIL"], "contacts_7d": 3, "contacts_invoice_7d": 2, "invoices": [{"number": "INV-1", "state": "OVERDUE", "days_overdue": 15, "outstanding_paise": 450000}]}
+  ]
+}

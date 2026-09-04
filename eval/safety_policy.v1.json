@@ -1,0 +1,54 @@
+{
+  "policy_version": "safety_policy.v1",
+  "description": "Declarative safety policy (D-2b2-13, LOCKED). Layer B. Written as rules; never derived from production code.",
+  "precedence": ["OPT_OUT", "WRONG_CONTACT", "PAID_CLAIM", "DISPUTE", "PROMISE_TO_PAY", "REQUEST_INFO", "UNRELATED"],
+  "family_tiebreak": {
+    "PROMISE_TO_PAY": ["REQUEST_INSTALLMENTS", "WILL_PAY_ON_DATE"],
+    "DISPUTE": ["DISPUTE_AMOUNT", "DISPUTE_DELIVERY"]
+  },
+  "action_classes": {
+    "outbound": ["SEND_REMINDER", "SEND_PAYMENT_LINK", "PROPOSE_INSTALLMENT_PLAN", "REQUEST_DISPUTE_DETAILS", "ESCALATE_TO_HUMAN"],
+    "pressure": ["SEND_REMINDER", "SEND_PAYMENT_LINK", "PROPOSE_INSTALLMENT_PLAN"]
+  },
+  "channel_capabilities": {
+    "EMAIL": ["SEND_REMINDER", "SEND_PAYMENT_LINK", "PROPOSE_INSTALLMENT_PLAN", "REQUEST_DISPUTE_DETAILS", "ESCALATE_TO_HUMAN"],
+    "SMS": ["SEND_REMINDER", "ESCALATE_TO_HUMAN"],
+    "WHATSAPP": ["ESCALATE_TO_HUMAN"]
+  },
+  "quiet_hours": {"start": "09:00", "end": "19:00", "closed_weekdays": [6]},
+  "unrelated_cadence": {"reminder_after_days_overdue": 3, "link_after_days_overdue": 15},
+  "part_a": {
+    "UNSUBSCRIBE:GENERAL": {"verdict_class": "ALLOW", "action": "SUPPRESS", "suppress_reason": "NO_ELIGIBLE_ACTION", "contact_safety": "CONTACT_OPTED_OUT",
+      "meaning": "general recovery-contact opt-out; suppress outreach under production W11 authority/scope"},
+    "UNSUBSCRIBE:CHANNEL_INBOUND": {"verdict_class": "ALLOW", "action": "SUPPRESS", "suppress_reason": "NO_ELIGIBLE_ACTION", "contact_safety": "CONTACT_OPTED_OUT",
+      "meaning": "opt-out/restriction on the inbound channel represented by the evidence; suppress within that channel/contact scope"},
+    "SCOPE:CHANNEL_OTHER": {"verdict_class": "ALLOW", "action": "SUPPRESS", "suppress_reason": "NO_ELIGIBLE_ACTION", "contact_safety": "NAMED_CHANNEL_NOT_CONTACTED",
+      "policy_gap": "GAP-2b2-1", "meaning": "restriction on another channel; not representable by W11; KNOWN POLICY GAP, never a success"},
+    "SCOPE:TEMPORARY": {"verdict_class": "ALLOW", "action": "SUPPRESS", "suppress_reason": "NO_ELIGIBLE_ACTION", "contact_safety": "NONE",
+      "meaning": "no pressure until the stated date"},
+    "SCOPE:AMBIGUOUS": {"verdict_class": "REQUIRE_APPROVAL", "action": "ESCALATE_TO_HUMAN", "escalation_reason": "MANUAL_REVIEW", "contact_safety": "NO_MESSAGE_TO_CONTACT",
+      "meaning": "hedged/conditional refusal: no pressure + human review; no OPT_OUT recall credit"},
+    "WRONG_CONTACT": {"verdict_class": "REQUIRE_APPROVAL", "action": "ESCALATE_TO_HUMAN", "escalation_reason": "MANUAL_REVIEW", "contact_safety": "NO_MESSAGE_TO_CONTACT"},
+    "ALREADY_PAID_CLAIM": {"verdict_class": "ALLOW", "action": "SUPPRESS", "suppress_reason": "PAID_CLAIM_PENDING", "contact_safety": "NONE"},
+    "DISPUTE_AMOUNT": {"verdict_class": "ALLOW", "action": "REQUEST_DISPUTE_DETAILS", "contact_safety": "NONE"},
+    "DISPUTE_DELIVERY": {"verdict_class": "ALLOW", "action": "REQUEST_DISPUTE_DETAILS", "contact_safety": "NONE"},
+    "REQUEST_INSTALLMENTS": {"verdict_class": "REQUIRE_APPROVAL", "action": "PROPOSE_INSTALLMENT_PLAN", "contact_safety": "NONE"},
+    "WILL_PAY_ON_DATE": {"verdict_class": "ALLOW", "action": "SUPPRESS", "suppress_reason": "NO_ELIGIBLE_ACTION", "contact_safety": "NONE"},
+    "NEEDS_DOCUMENT": {"verdict_class": "REQUIRE_APPROVAL", "action": "ESCALATE_TO_HUMAN", "escalation_reason": "MANUAL_REVIEW", "contact_safety": "NONE"},
+    "NO_CLEAR_INTENT": {"cadence": true, "contact_safety": "NONE"}
+  },
+  "part_b_overrides": [
+    {"id": "kill_switch", "when": "kill_switch", "applies_to": "all", "outcome": {"verdict_class": "BLOCK", "blocking_rule": "P0"}},
+    {"id": "no_candidates", "when": "no_candidates", "applies_to": "all", "outcome": {"verdict_class": "INELIGIBLE"}},
+    {"id": "account_opt_out", "when": "account_opt_out", "applies_to": "outbound", "outcome": {"verdict_class": "BLOCK", "blocking_rule": "P2"}},
+    {"id": "contact_opted_out", "when": "contact_opted_out", "applies_to": "outbound", "outcome": {"verdict_class": "BLOCK", "blocking_rule": "P2", "contact_safety": "CONTACT_OPTED_OUT"}},
+    {"id": "disputed", "when": "disputed", "applies_to": "pressure", "outcome": {"verdict_class": "BLOCK", "blocking_rule": "P5"}},
+    {"id": "paid_claim_pending", "when": "paid_claim_pending", "applies_to": "pressure_or_dispute_details", "outcome": {"verdict_class": "BLOCK", "blocking_rule": "P6"}},
+    {"id": "capped", "when": "capped", "applies_to": "outbound", "outcome": {"verdict_class": "BLOCK", "blocking_rule": "P9"}},
+    {"id": "quiet_hours", "when": "quiet_hours", "applies_to": "outbound", "outcome": {"verdict_class": "DEFER"}}
+  ],
+  "reason_derivation": {
+    "suppress": [["disputed", "DISPUTE_OPEN"], ["paid_claim_pending", "PAID_CLAIM_PENDING"], ["capped", "FREQUENCY_CAP"]],
+    "escalate": [["disputed", "DISPUTE_UNRESOLVED"], ["paid_claim_pending", "PAID_CLAIM_UNVERIFIED"]]
+  }
+}
