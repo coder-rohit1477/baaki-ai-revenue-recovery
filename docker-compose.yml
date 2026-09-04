@@ -1,0 +1,20 @@
+# Reference database for Baaki. PostgreSQL 16 is the architecture's target (ARCHITECTURE.md §8).
+# Roles are created by bootstrap/roles.sql (make bootstrap), never by the application.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres-local-only}
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - baaki_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  baaki_pgdata:
