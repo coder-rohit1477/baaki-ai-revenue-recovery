@@ -1,0 +1,20 @@
+{
+  "prompt_hash": "default",
+  "outcomes": [
+    {
+      "status": "OK",
+      "latency_ms": 42,
+      "provider_request_id": "fixture-req-0001",
+      "body": {
+        "intent": "WILL_PAY_ON_DATE",
+        "promised_date_raw": "Friday",
+        "promised_amount_raw": null,
+        "invoice_refs": [],
+        "contact_correction": null,
+        "sentiment": "COOPERATIVE",
+        "confidence": 0.9,
+        "evidence": [{"field": "promised_date_raw", "quote": "by Friday"}]
+      }
+    }
+  ]
+}

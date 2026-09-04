@@ -7,7 +7,13 @@ SRC = Path(__file__).resolve().parents[2] / "src" / "baaki"
 FORBIDDEN_EDGES = {
     "agent": ["baaki.ledger", "baaki.actions", "baaki.reconcile", "baaki.experiment", "baaki.providers.razorpay",
               "baaki.db.writers.decision", "baaki.db.writers.action_auto", "baaki.db.writers.ledger", "baaki.db.writers.payment",
-              "baaki.db.writers.webhook", "baaki.db.writers.sweep", "baaki.db.writers.validation"],
+              "baaki.db.writers.webhook", "baaki.db.writers.sweep", "baaki.db.writers.validation",
+              "baaki.db.writers.optout_evidence", "baaki.db.writers.operator", "baaki.db.models", "baaki.db.engine", "baaki.pipeline",
+              "baaki.policy.validate", "baaki.policy.kernel", "baaki.policy.arms", "baaki.policy.snapshot", "baaki.policy.optout",
+              "baaki.policy.ruleset", "baaki.rules_agent"],
+    "providers": ["baaki.agent", "baaki.policy", "baaki.pipeline", "baaki.db", "baaki.ledger", "baaki.actions", "baaki.reconcile",
+                  "baaki.experiment", "baaki.rules_agent", "sqlalchemy", "psycopg"],
+    "db": ["baaki.agent", "baaki.providers", "baaki.policy", "baaki.pipeline", "baaki.rules_agent"],
     "policy": ["baaki.providers", "baaki.agent", "baaki.actions", "baaki.db.writers.ledger", "baaki.db.writers.payment",
                "baaki.db.writers.action_auto", "baaki.db.writers.webhook", "baaki.db.writers.sweep", "baaki.db.writers.operator",
                "baaki.db.writers.proposal", "baaki.db.models", "baaki.db.engine"],
@@ -15,12 +21,13 @@ FORBIDDEN_EDGES = {
     "reconcile": ["baaki.agent", "baaki.policy.kernel"],
     "sim": ["baaki.experiment", "baaki.policy", "baaki.agent", "baaki.db.writers"],
     "experiment": ["baaki.agent", "baaki.sim"],
-    "ledger": ["baaki.agent", "baaki.policy", "baaki.actions", "baaki.providers", "baaki.db.writers"],
+    "ledger": ["baaki.agent", "baaki.policy", "baaki.actions", "baaki.providers", "baaki.db.writers", "baaki.pipeline"],
     "rules_agent": ["baaki.providers", "baaki.agent", "baaki.actions", "baaki.db", "baaki.ledger", "sqlalchemy", "psycopg"],
     "pipeline": ["baaki.agent", "baaki.providers", "baaki.db.writers.ledger", "baaki.db.writers.payment", "baaki.db.writers.webhook",
                  "baaki.db.writers.sweep", "baaki.db.writers.proposal", "baaki.db.writers.operator"],
-    "contracts": ["openai", "anthropic", "razorpay", "httpx", "requests", "fastapi"],
-    "domain": ["openai", "anthropic", "razorpay", "httpx", "requests", "fastapi", "sqlalchemy", "psycopg"],
+    "contracts": ["openai", "anthropic", "razorpay", "httpx", "requests", "fastapi", "baaki.agent", "baaki.providers"],
+    "domain": ["openai", "anthropic", "razorpay", "httpx", "requests", "fastapi", "sqlalchemy", "psycopg", "baaki.agent",
+               "baaki.providers"],
 }
 VENDOR = {"openai", "anthropic", "razorpay", "httpx", "requests", "fastapi", "langchain", "chromadb"}
 

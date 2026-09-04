@@ -1,0 +1,11 @@
+{
+  "templates": {
+    "interp.v1": "7804078cad6bf034aefac371c9ca5361a370e7e9e5a7b55b2439c46a87688bb7",
+    "propose.v1": "224a1619c9c9f8a165602598bd719f9b53e348531eb11dff504ddc260dff2ad6"
+  },
+  "fixed_facts_requests": {
+    "interp_we_will_pay_by_friday": "89a509eff8fdb8cf7c497c4521c91ab24d0ceb22e6fd7b2ef8fab43c1bf1fd3c",
+    "propose_absent": "61f5ef051fcad5b4bc38dff467d57394b1b25900bc0c2bfd2fd9e3d8c7b53a58",
+    "propose_passed_will_pay": "10a71e559b9e5d305e430820319038cbd1ef0031246dd405d7676e0c1941e82d"
+  }
+}

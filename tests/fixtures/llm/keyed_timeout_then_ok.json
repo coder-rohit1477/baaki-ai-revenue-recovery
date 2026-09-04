@@ -1,0 +1,9 @@
+{
+  "prompt_hash": "89a509eff8fdb8cf7c497c4521c91ab24d0ceb22e6fd7b2ef8fab43c1bf1fd3c",
+  "outcomes": [
+    {"status": "TIMEOUT", "latency_ms": 700, "error_class": "ReadTimeout"},
+    {"status": "OK", "latency_ms": 30, "body": {"intent": "WILL_PAY_ON_DATE", "promised_date_raw": "Friday", "promised_amount_raw": null,
+      "invoice_refs": [], "contact_correction": null, "sentiment": "NEUTRAL", "confidence": 0.8,
+      "evidence": [{"field": "promised_date_raw", "quote": "by Friday"}]}}
+  ]
+}
