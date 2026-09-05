@@ -40,7 +40,8 @@ class State:
         self.engine_app = d.engine("baaki_app")
         self.engine_agent = d.engine("baaki_agent")
         self.engine_owner = d.engine("baaki_migrate")
-        self.accounts = seed(self.engine_owner, self.engine_app, today=datetime.now(UTC).date())
+        self.engine_super = d.engine("super")  # reset needs TRUNCATE; no other path uses this engine
+        self.accounts = self._seed()
 
     def scenario_accounts(self) -> dict[str, Any]:
         return {
@@ -51,8 +52,17 @@ class State:
             for k, a in self.accounts.items()
         }
 
+    def _seed(self) -> dict[str, Any]:
+        return seed(self.engine_owner, self.engine_app, today=datetime.now(UTC).date())
+
     def reseed(self) -> None:
-        self.accounts = seed(self.engine_owner, self.engine_app, today=datetime.now(UTC).date())
+        """Restore the original baseline. Clears first, then seeds once.
+
+        The previous implementation seeded again without clearing, so every press added a second
+        organisation and nine more accounts — revenue at risk doubled and duplicate account rows appeared.
+        """
+        store.truncate_demo_data(self.engine_super)
+        self.accounts = self._seed()
 
 
 STATE: State | None = None

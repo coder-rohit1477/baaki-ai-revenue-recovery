@@ -200,7 +200,10 @@ async function run(k){
       </div></div>
     </div>
     <div class="note ${k==='B'?'hostile':''}">${r.note}</div>
-    ${k==='B' ? `<div class="note hostile"><b>Financial state: UNCHANGED. Outbound action: NOT SENT.</b>
+    ${k==='B' ? `<div class="note hostile"><b>Financial state: UNCHANGED. External delivery: NOT SENT.</b>
+       The model's proposal was rejected, so nothing it asked for happened. The action shown above was chosen
+       by the <b>deterministic policy tree</b>, not by the model, and is queued only — this build has no
+       email/SMS/WhatsApp sender, so nothing leaves the system.<br>
        A discount is not merely refused — <b>ActionType has no DISCOUNT, WRITE_OFF or MARK_PAID member</b>,
        so it cannot be expressed in the production schema at all.</div>`:""}
     ${k==='A' ? `<button class="pay" style="margin-top:12px" onclick="pay('${s.invoice_id}',1000000,'${k}')">

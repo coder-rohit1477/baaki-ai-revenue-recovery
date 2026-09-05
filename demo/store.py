@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Any
-from uuid import UUID
+from typing import Any, Final
+from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, text
 
@@ -23,6 +23,38 @@ from baaki.domain.ids import new_id
 # minting a fake Razorpay signature would be pretending to hold an integration we do not have.
 # `provider` is still recorded as "razorpay" because that is the sweep_run column's domain; the payload
 # itself is synthetic and every surface that shows it is labelled SIMULATED.
+
+
+# Tables the demo owns and may clear on reset. provider_secret and template_registry are bootstrap
+# data that `seed()` does not recreate from scratch, so they are deliberately excluded.
+RESETTABLE_TABLES: Final[tuple[str, ...]] = (
+    "outbox", "recovery_action", "policy_decision", "validation_result", "agent_proposal",
+    "ledger_entry", "payment_event", "sweep_run", "webhook_event", "invoice",
+    "contact", "account", "organization",
+)
+
+
+def provider_payment_id() -> str:
+    """A unique id for one simulated provider payment.
+
+    `uuid4` is random, not time-ordered: the previous `new_id().hex[:10]` was the first 40 bits of a UUIDv7,
+    i.e. a millisecond timestamp, so two payments in the same millisecond collided on
+    `uq_payment_provider_id`. Production payment identity is unaffected — this value only ever labels a
+    synthetic demo payload.
+    """
+    return f"demo_pay_{uuid4().hex}"
+
+
+def truncate_demo_data(engine: Engine) -> None:
+    """Clear every table the demo writes, so a reset restores the baseline instead of appending to it.
+
+    Requires a role that may TRUNCATE (the demo passes its superuser engine). CASCADE is safe here because
+    RESETTABLE_TABLES already lists the whole dependency closure the demo touches.
+    """
+    tables = ", ".join(f"baaki.{t}" for t in RESETTABLE_TABLES)
+    with engine.connect() as c:
+        c.execute(text(f"TRUNCATE {tables} CASCADE"))
+        c.commit()
 
 
 def _rows(engine: Engine, sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -113,7 +145,7 @@ def simulate_payment(engine_app: Engine, *, invoice_id: UUID, amount_paise: int)
     """
     now = datetime.now(UTC)
     entity = json.dumps(
-        {"id": f"demo_pay_{new_id().hex[:10]}", "amount": amount_paise, "currency": "INR",
+        {"id": provider_payment_id(), "amount": amount_paise, "currency": "INR",
          "status": "captured", "created_at": 1_756_960_000, "notes": {"invoice_id": str(invoice_id)}},
         separators=(",", ":"),
     )
