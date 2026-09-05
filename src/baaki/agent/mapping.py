@@ -16,9 +16,19 @@ from uuid import UUID
 
 from baaki.contracts.agent_proposal import AgentProposal, RawJson, money_key_violations, typed_date_violations
 from baaki.domain.enums import Arm, ParseStatus, ProposalKind
+from baaki.policy.schemas import action_proposal_v1, interpretation_v1
 from baaki.providers.llm.base import ProviderRequest, ProviderResponse, ProviderStatus
 
 NON_JSON_TEXT_CAP_BYTES: Final[int] = 8192  # §11.2 envelope cap
+
+# The stored `schema_version` is a DOMAIN fact, derived from the proposal kind — never from the provider
+# request's wire name, which is constrained by the provider's own naming rules and carries no version.
+# This must agree with the validator's SCHEMA_FOR_KIND (policy/validate/ladder.py); a mismatch would fail
+# check 04 with UNKNOWN_SCHEMA_VERSION.
+SCHEMA_VERSION_FOR_KIND: Final[dict[ProposalKind, str]] = {
+    ProposalKind.INTERPRETATION: interpretation_v1.SCHEMA_VERSION,
+    ProposalKind.ACTION_PROPOSAL: action_proposal_v1.SCHEMA_VERSION,
+}
 
 
 def _envelope(response: ProviderResponse) -> dict[str, Any]:
@@ -87,7 +97,7 @@ def map_response(
         provider=response.provider,
         model_id=response.model_id,
         prompt_template_id=request.prompt_template_id,
-        schema_version=request.schema_name,
+        schema_version=SCHEMA_VERSION_FOR_KIND[kind],
         prompt_hash=request.prompt_hash,
         input_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
         raw_response=RawJson(raw),

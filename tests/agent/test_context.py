@@ -31,7 +31,9 @@ MSG = InboundMessage(text="We will pay by Friday", received_at=AS_OF)
 
 
 def test_template_hashes_are_golden():
+    # interp.v1 stays pinned: rows stamped interp.v1 must remain reconstructible (§11.2)
     assert template_hash("interp.v1") == GOLDEN["templates"]["interp.v1"]
+    assert template_hash("interp.v2") == GOLDEN["templates"]["interp.v2"]
     assert template_hash("propose.v1") == GOLDEN["templates"]["propose.v1"]
 
 

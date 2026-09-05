@@ -22,7 +22,20 @@ from baaki.policy.schemas.interpretation_v1 import InterpretationV1
 from baaki.providers.llm.base import ProviderRequest, compute_prompt_hash
 
 TEMPLATE_DIR: Final[Path] = Path(__file__).resolve().parent / "prompts"
-INTERP_TEMPLATE_ID: Final[str] = "interp.v1"
+# `ProviderRequest.schema_name` is the name the provider is told to call the structured-output schema.
+# Providers constrain it to [A-Za-z0-9_-]; a dotted domain version is refused (confirmed live 2026-09-05:
+# 400 invalid_request_error / invalid_value on that field), so the domain SCHEMA_VERSION cannot be reused
+# there. These are wire identifiers ONLY. The stored `schema_version` keeps the dotted domain constant —
+# see agent/mapping.py — because that is what the validator authorises against (check 04,
+# UNKNOWN_SCHEMA_VERSION). Keep these values stable: a provider caches a compiled strict schema per name.
+WIRE_SCHEMA_NAME: Final[dict[str, str]] = {
+    interpretation_v1.SCHEMA_VERSION: "interpretation",
+    action_proposal_v1.SCHEMA_VERSION: "action_proposal",
+}
+
+# v2: rule 5 now states the evidence-attribution contract that validator check 08 already enforced.
+# interp.v1.txt is retained, not edited, so rows stamped interp.v1 stay reconstructible (§11.2).
+INTERP_TEMPLATE_ID: Final[str] = "interp.v2"
 PROPOSE_TEMPLATE_ID: Final[str] = "propose.v1"
 CALL1_TIMEOUT_S: Final[float] = 8.0  # §7 locked
 CALL2_TIMEOUT_S: Final[float] = 6.0  # §7 locked
@@ -190,7 +203,7 @@ def build_interpretation_request(
         prompt_hash=compute_prompt_hash(system_text, user_text),
         system_text=system_text,
         user_text=user_text,
-        schema_name=interpretation_v1.SCHEMA_VERSION,
+        schema_name=WIRE_SCHEMA_NAME[interpretation_v1.SCHEMA_VERSION],
         json_schema=provider_json_schema("interpretation"),
         timeout_s=CALL1_TIMEOUT_S,
         max_output_tokens=CALL1_MAX_OUTPUT_TOKENS,
@@ -250,7 +263,7 @@ def build_action_request(
         prompt_hash=compute_prompt_hash(system_text, user_text),
         system_text=system_text,
         user_text=user_text,
-        schema_name=action_proposal_v1.SCHEMA_VERSION,
+        schema_name=WIRE_SCHEMA_NAME[action_proposal_v1.SCHEMA_VERSION],
         json_schema=provider_json_schema("action_proposal"),
         timeout_s=CALL2_TIMEOUT_S,
         max_output_tokens=CALL2_MAX_OUTPUT_TOKENS,

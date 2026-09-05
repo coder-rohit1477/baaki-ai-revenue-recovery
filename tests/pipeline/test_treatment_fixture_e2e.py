@@ -96,7 +96,7 @@ def test_every_call1_fault_records_evidence_rejects_and_falls_back_to_l1(world, 
     provider = FixtureProvider(default=Script(outcomes=(fault(status, text=txt), fault(status, text=txt))))
     wf, gate, c2, r = compose(agent, eng, ids, facts, provider)
     assert isinstance(gate, Failed) and c2.proposal is None and c2.skipped_reason == "call1_failed"
-    assert wf.budget.used <= 3 and all(req.prompt_template_id == "interp.v1" for req in provider.requests)
+    assert wf.budget.used <= 3 and all(req.prompt_template_id == "interp.v2" for req in provider.requests)
     assert su.execute(text("SELECT parse_status::text FROM baaki.agent_proposal")).scalar_one() == parse_status
     reason = su.execute(text("SELECT rejection_reasons::text[] FROM baaki.validation_result")).scalar_one()
     assert reason == [{"TIMEOUT": "PROVIDER_TIMEOUT", "PROVIDER_ERROR": "PROVIDER_TIMEOUT", "UNPARSEABLE": "UNPARSEABLE"}[parse_status]]

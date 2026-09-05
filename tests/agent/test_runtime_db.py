@@ -57,9 +57,9 @@ def test_case_b_interpretation_then_validated_action(setup, agent, su):
     provider.add_script(h2, Script(outcomes=(ok(action_body(ids)),)))
     c2 = wf.propose_action(agent, facts, call1=Passed(normalized), now=AS_OF)
     assert c2.status is ProviderStatus.OK and c2.proposal.invoice_id == inv and c2.proposal.parse_status is ParseStatus.OK
-    assert rows(su) == [("INTERPRETATION", "OK", "fixture", "fixture-model-v1", "interp.v1", "interpretation.v1"),
+    assert rows(su) == [("INTERPRETATION", "OK", "fixture", "fixture-model-v1", "interp.v2", "interpretation.v1"),
                         ("ACTION_PROPOSAL", "OK", "fixture", "fixture-model-v1", "propose.v1", "action_proposal.v1")]
-    assert wf.budget.used == 2 and wf.budget.log == ["interp.v1:1", "propose.v1:1"]
+    assert wf.budget.used == 2 and wf.budget.log == ["interp.v2:1", "propose.v1:1"]
     assert "normalized" not in provider.requests[1].user_text and '"intent":"WILL_PAY_ON_DATE"' in provider.requests[1].user_text
     assert "by Friday" not in provider.requests[1].user_text  # call 2 never sees the raw call-1 output or the message
 

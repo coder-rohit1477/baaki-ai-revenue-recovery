@@ -67,9 +67,10 @@ def test_exactly_one_provider_port_and_no_sdk_importer():
     assert "openai" not in pyproject and "httpx" not in pyproject
 
 
-def test_prompt_templates_are_exactly_the_two_approved_files():
+def test_prompt_templates_are_exactly_the_approved_files():
+    """interp.v1 is retained, not deleted: a proposal stamped interp.v1 must stay reconstructible (§11.2)."""
     names = sorted(p.name for p in (SRC / "agent" / "prompts").iterdir())
-    assert names == ["interp.v1.txt", "propose.v1.txt"]
+    assert names == ["interp.v1.txt", "interp.v2.txt", "propose.v1.txt"]
 
 
 def test_no_migration_added_by_phase_2b():

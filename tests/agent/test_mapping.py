@@ -27,7 +27,7 @@ def test_ok_clean_object_is_ok_and_carries_metadata():
     assert p.parse_status is ParseStatus.OK and p.parsed == GOOD and p.confidence == 0.9
     assert p.evidence == [{"field": "promised_date_raw", "quote": "by Friday"}]
     assert p.input_hash == hashlib.sha256(SRC.encode()).hexdigest() and p.prompt_hash == REQ.prompt_hash
-    assert (p.provider, p.model_id, p.prompt_template_id, p.schema_version) == ("fixture", "fixture-model-v1", "interp.v1", "interpretation.v1")
+    assert (p.provider, p.model_id, p.prompt_template_id, p.schema_version) == ("fixture", "fixture-model-v1", "interp.v2", "interpretation.v1")
     assert p.proposal_id == REQ.correlation_id and p.latency_ms == 12 and p.raw_response.unwrap_for_audit() == GOOD
 
 
