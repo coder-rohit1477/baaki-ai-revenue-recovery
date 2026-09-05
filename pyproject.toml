@@ -33,7 +33,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q -m 'not network'"
 markers = [
-  "network: tests that open outbound network connections (excluded by default; Phase 4 provider integration only)",
+  "network: tests that open outbound network connections (excluded by default; credential-gated live provider smoke, Phase 2b-3 onward)",
   "db: tests that require the PostgreSQL test cluster",
 ]
 
