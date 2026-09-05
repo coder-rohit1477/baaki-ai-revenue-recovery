@@ -52,4 +52,4 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N", "S", "T20"]
 ignore = ["S101", "S608", "N818", "S105"]   # N818: exception names are architecture-specified; S105: enum label PASS / token ctx key are not passwords
-per-file-ignores = { "tests/*" = ["S", "T20", "E501", "B", "E702", "E731", "F841"], "migrations/*" = ["E501", "S608"] }
+per-file-ignores = { "tests/*" = ["S", "T20", "E501", "B", "E702", "E731", "F841"], "migrations/*" = ["E501", "S608"], "demo/*" = ["S", "T20", "E501"] }

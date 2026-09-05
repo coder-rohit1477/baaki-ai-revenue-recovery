@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baaki — AI Revenue Recovery</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#151b23; --panel2:#1b2530; --line:#26303c;
+    --ink:#e6edf3; --dim:#8b98a5; --accent:#4da3ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+    --ai:#a371f7; --det:#3fb950;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:18px 26px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .logo{font-size:23px;font-weight:700;letter-spacing:-.5px}
+  .logo span{color:var(--accent)}
+  .tag{font-size:11px;color:var(--dim);border:1px solid var(--line);padding:3px 9px;border-radius:20px}
+  .tag.demo{color:var(--warn);border-color:#4a3c14;background:#241d0c}
+  .spacer{flex:1}
+  main{padding:22px 26px;max-width:1280px;margin:0 auto}
+  .thesis{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:20px;
+          display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+  .thesis .old{color:var(--dim)}
+  .thesis .new{color:var(--ink);font-weight:600}
+  .thesis .new b{color:var(--det)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:22px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px 17px}
+  .kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .kpi .v{font-size:27px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+  .kpi.risk .v{color:var(--warn)} .kpi.rec .v{color:var(--ok)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin:26px 0 12px}
+  .scn{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .card h3{margin:0 0 4px;font-size:15px}
+  .card .sub{color:var(--dim);font-size:12.5px;min-height:36px}
+  .msg{background:var(--panel2);border-left:3px solid var(--accent);padding:9px 12px;border-radius:4px;
+       margin:11px 0;font-size:13px;color:#cdd9e5}
+  button{background:var(--accent);color:#04121f;border:0;border-radius:7px;padding:9px 15px;font-weight:650;
+         cursor:pointer;font-size:13px}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button.pay{background:var(--ok);color:#04160a}
+  .flow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  @media(max-width:820px){.flow{grid-template-columns:1fr}}
+  .pane{border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .pane .hd{padding:8px 13px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+  .pane.ai .hd{background:#241a3a;color:var(--ai);border-bottom:1px solid #3a2a5c}
+  .pane.det .hd{background:#0f2e18;color:var(--det);border-bottom:1px solid #1d4a29}
+  .pane .bd{padding:12px 13px;font-size:13px}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px dashed #222c37}
+  .row:last-child{border:0}
+  .row .k{color:var(--dim)}
+  .row .v{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+  .pill.ok{background:#0f2e18;color:var(--ok)} .pill.bad{background:#3d1418;color:var(--bad)}
+  .pill.warn{background:#241d0c;color:var(--warn)} .pill.dim{background:#1b2530;color:var(--dim)}
+  .note{margin-top:11px;font-size:12px;color:var(--dim);border-left:2px solid var(--line);padding-left:10px}
+  .note.hostile{color:var(--bad);border-color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);
+     padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid #1c242e}
+  tr:hover td{background:#182029;cursor:pointer}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  pre{background:#0b0f14;border:1px solid var(--line);border-radius:7px;padding:11px;overflow:auto;
+      font-size:11.5px;max-height:230px;color:#b9c6d3}
+  .bal{display:flex;align-items:center;gap:13px;margin-top:11px;font-size:20px;font-weight:700;flex-wrap:wrap}
+  .bal .before{color:var(--dim);text-decoration:line-through}
+  .bal .arrow{color:var(--dim);font-size:15px}
+  .bal .after{color:var(--ok)}
+  .stopped{margin-top:11px;padding:9px 12px;border-radius:7px;background:#0f2e18;color:var(--ok);font-weight:650;font-size:13px}
+  footer{padding:18px 26px;color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:34px}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid #2a3542;border-top-color:var(--accent);
+        border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+  @keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">BAAKI<span>.</span></div>
+  <div>AI Revenue Recovery</div>
+  <div class="spacer"></div>
+  <div class="tag demo">DEMO · SYNTHETIC DATA</div>
+  <div class="tag" id="modeltag">model —</div>
+  <div class="tag" id="livetag">live —</div>
+  <button class="ghost" onclick="reset()">Reset demo</button>
+</header>
+
+<main>
+  <div class="thesis">
+    <div class="old">Traditional collection:&nbsp; REMINDER → REMINDER → REMINDER</div>
+    <div class="new">Baaki:&nbsp; UNDERSTAND → <b>DECIDE SAFELY</b> → ACT → VERIFY PAYMENT → STOP</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi risk"><div class="l">Revenue at risk</div><div class="v" id="k-risk">—</div></div>
+    <div class="kpi rec"><div class="l">Recovered</div><div class="v" id="k-rec">—</div></div>
+    <div class="kpi"><div class="l">Overdue accounts</div><div class="v" id="k-od">—</div></div>
+    <div class="kpi"><div class="l">Decisions on record</div><div class="v" id="k-ptp">—</div></div>
+  </div>
+
+  <h2>Judge scenarios</h2>
+  <div class="scn" id="scn"></div>
+
+  <h2>Accounts <span style="color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0">— click a row for the full audit trail</span></h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table id="acct"><thead><tr>
+      <th>Account</th><th>Invoice</th><th>State</th><th class="num">Days overdue</th><th class="num">Outstanding</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+
+  <div id="trail"></div>
+</main>
+
+<footer>
+  Every amount, decision and ledger line on this page was produced by the committed deterministic pipeline and read back
+  from PostgreSQL. The model proposes; it never writes money. Payment confirmation is <b>simulated</b> — this build has
+  no live Razorpay integration.
+</footer>
+
+<script>
+const rupees = p => "₹" + (p/100).toLocaleString("en-IN", {maximumFractionDigits:0});
+const el = id => document.getElementById(id);
+let STATE = null;
+
+async function api(path, body){
+  const opt = body ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)} : {};
+  const r = await fetch(path, opt);
+  return r.json();
+}
+
+async function load(){
+  STATE = await api("/api/state");
+  const d = STATE.dashboard;
+  el("k-risk").textContent = rupees(d.at_risk_paise);
+  el("k-rec").textContent  = rupees(d.recovered_paise);
+  el("k-od").textContent   = d.overdue_accounts;
+  el("k-ptp").textContent  = d.decisions;
+  el("modeltag").textContent = "model " + STATE.model_id;
+  el("livetag").textContent  = STATE.live_available ? "live AI: ON" : "live AI: OFF (no key)";
+  el("livetag").style.color  = STATE.live_available ? "var(--ok)" : "var(--warn)";
+  renderScenarios();
+  renderAccounts();
+}
+
+function renderScenarios(){
+  el("scn").innerHTML = Object.entries(STATE.scenarios).map(([k,s]) => `
+    <div class="card" id="card-${k}">
+      <h3>Scenario ${k} — ${s.title}</h3>
+      <div class="sub">${s.subtitle}</div>
+      <div class="row"><span class="k">${s.name}</span><span class="v">${s.invoice_number} · ${rupees(s.amount_paise)} · ${s.days_overdue}d overdue</span></div>
+      <div class="msg">“${s.message}”</div>
+      <button onclick="run('${k}')" id="btn-${k}">Run AI analysis</button>
+      <div id="out-${k}"></div>
+    </div>`).join("");
+}
+
+function renderAccounts(){
+  document.querySelector("#acct tbody").innerHTML = STATE.accounts.map(a => `
+    <tr onclick="trail('${a.account_id}','${a.name}')">
+      <td>${a.name}${a.opt_out ? ' <span class="pill dim">OPTED OUT</span>' : ''}</td>
+      <td>${a.invoice_number}</td>
+      <td><span class="pill ${a.state==='PAID'?'ok':a.state==='OVERDUE'?'warn':'dim'}">${a.state}</span></td>
+      <td class="num">${Math.max(0, Math.round((Date.now()-new Date(a.due_date))/864e5))}</td>
+      <td class="num">${rupees(a.outstanding_paise)}</td>
+    </tr>`).join("");
+}
+
+async function run(k){
+  const btn = el("btn-"+k), out = el("out-"+k);
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> analysing…';
+  const r = await api("/api/run", {scenario:k});
+  btn.disabled = false; btn.textContent = "Run AI analysis";
+  if (r.error){ out.innerHTML = `<div class="note hostile">${r.error}: ${r.detail}</div>`; return; }
+
+  const i = r.interpretation || {};
+  const rejected = (r.rejection_reasons||[]).length > 0 || r.validation_outcome === "REJECT";
+  const s = STATE.scenarios[k];
+
+  out.innerHTML = `
+    <div class="flow">
+      <div class="pane ai"><div class="hd">🤖 AI interpretation ${r.live ? "· live call" : "· scripted"}</div><div class="bd">
+        <div class="row"><span class="k">Intent</span><span class="v">${i.intent ?? "—"}</span></div>
+        <div class="row"><span class="k">Promised amount</span><span class="v">${i.promised_amount_raw ?? "—"}</span></div>
+        <div class="row"><span class="k">Promised date</span><span class="v">${i.promised_date_raw ?? "—"}</span></div>
+        <div class="row"><span class="k">Sentiment</span><span class="v">${i.sentiment ?? "—"}</span></div>
+        <div class="row"><span class="k">Confidence</span><span class="v">${i.confidence ?? "—"}</span></div>
+        <div class="row"><span class="k">Parse status</span><span class="v">${r.parse_status ?? "—"}</span></div>
+      </div></div>
+      <div class="pane det"><div class="hd">🔒 Deterministic policy decision</div><div class="bd">
+        <div class="row"><span class="k">Validator</span><span class="v">
+          <span class="pill ${rejected?'bad':'ok'}">${r.validation_outcome ?? "—"}</span></span></div>
+        ${rejected ? `<div class="row"><span class="k">Reasons</span><span class="v">${r.rejection_reasons.join("<br>")}</span></div>`:""}
+        <div class="row"><span class="k">Verdict</span><span class="v">${r.verdict ?? "—"}</span></div>
+        <div class="row"><span class="k">Action</span><span class="v">${r.action_type ?? "NOT SENT"}</span></div>
+        <div class="row"><span class="k">Authority tier</span><span class="v">${r.tier ?? "—"}</span></div>
+        <div class="row"><span class="k">Degradation</span><span class="v">${r.degradation_level ?? "—"}</span></div>
+        ${r.blocking_rules.length ? `<div class="row"><span class="k">Blocked by</span><span class="v">${r.blocking_rules.join("<br>")}</span></div>`:""}
+      </div></div>
+    </div>
+    <div class="note ${k==='B'?'hostile':''}">${r.note}</div>
+    ${k==='B' ? `<div class="note hostile"><b>Financial state: UNCHANGED. Outbound action: NOT SENT.</b>
+       A discount is not merely refused — <b>ActionType has no DISCOUNT, WRITE_OFF or MARK_PAID member</b>,
+       so it cannot be expressed in the production schema at all.</div>`:""}
+    ${k==='A' ? `<button class="pay" style="margin-top:12px" onclick="pay('${s.invoice_id}',1000000,'${k}')">
+       Simulate ₹10,000 payment</button><div id="pay-${k}"></div>`:""}
+    ${(k==='C' && (r.action_type==='SUPPRESS' || i.intent==='UNSUBSCRIBE')) ? `<div class="stopped">
+       ✓ Pursuit stopped. No outbound reminder was created for this account.</div>`:""}
+    <details style="margin-top:11px"><summary style="cursor:pointer;color:var(--dim);font-size:12px">Telemetry (redacted)</summary>
+      <pre>${JSON.stringify(r.telemetry,null,1)}</pre></details>`;
+}
+
+async function pay(invoice_id, paise, k, label){
+  const out = el("pay-"+k);
+  const before = await currentOutstanding(invoice_id);
+  out.innerHTML = '<div class="note"><span class="spin"></span> confirming payment…</div>';
+  const r = await api("/api/pay", {invoice_id, amount_paise:paise});
+  if (r.error){ out.innerHTML = `<div class="note hostile">${r.error}: ${r.detail}</div>`; return; }
+  const remaining = r.outstanding_paise;
+  out.innerHTML = `
+    <div class="bal"><span class="before">${rupees(before)}</span><span class="arrow">→</span>
+      <span class="after">${rupees(remaining)}</span>
+      <span class="pill ok">RECOVERED ${rupees(paise)}</span>
+      <span class="pill ${r.invoice_state==='PAID'?'ok':'warn'}">${r.invoice_state}</span>
+      <span class="pill warn">SIMULATED</span></div>
+    <div class="stopped">✓ Sweep → payment event → ledger, written by the in-database writers.
+      Outstanding was recomputed from v_invoice_outstanding — the demo did no arithmetic.</div>
+    ${remaining > 0
+      ? `<button class="pay" style="margin-top:10px" onclick="pay('${invoice_id}',${remaining},'${k}')">
+           Simulate remaining ${rupees(remaining)}</button>`
+      : `<button style="margin-top:10px" onclick="recheck('${k}')">Run recovery again → prove it stops</button>`}
+    <div id="stop-${k}"></div>`;
+  await refreshKpis();
+}
+
+async function currentOutstanding(invoice_id){
+  const st = await api("/api/state");
+  const row = st.accounts.find(a => a.invoice_id === invoice_id);
+  return row ? row.outstanding_paise : 0;
+}
+
+async function recheck(k){
+  const out = el("stop-"+k);
+  out.innerHTML = '<div class="note"><span class="spin"></span> re-running the recovery decision…</div>';
+  const r = await api("/api/run", {scenario:k});
+  if (r.error){ out.innerHTML = `<div class="note hostile">${r.error}: ${r.detail}</div>`; return; }
+  const stopped = !r.action_type || r.action_type === "SUPPRESS";
+  out.innerHTML = stopped
+    ? `<div class="stopped">✓ AUTOMATIC STOP — the invoice is settled, so the account is no longer an
+         eligible candidate. Outbound action: <b>NOT SENT</b>. No human told it to stop.</div>`
+    : `<div class="note">Decision: ${r.verdict} / ${r.action_type}</div>`;
+  await refreshKpis();
+}
+
+async function trail(account_id, name){
+  const t = await api("/api/timeline?account_id="+account_id);
+  el("trail").innerHTML = `<h2>Audit trail — ${name}</h2>
+    <div class="card"><div class="flow" style="grid-template-columns:1fr">
+    ${["proposals","validations","decisions","actions","payments","ledger"].map(s => `
+      <div class="pane"><div class="hd" style="background:var(--panel2);color:var(--dim)">${s}</div>
+        <div class="bd"><pre>${t[s].length ? JSON.stringify(t[s],null,1) : "— none —"}</pre></div></div>`).join("")}
+    </div></div>`;
+  el("trail").scrollIntoView({behavior:"smooth"});
+}
+
+async function refreshKpis(){
+  const st = await api("/api/state"); const d = st.dashboard;
+  el("k-risk").textContent = rupees(d.at_risk_paise);
+  el("k-rec").textContent  = rupees(d.recovered_paise);
+  el("k-od").textContent   = d.overdue_accounts;
+  el("k-ptp").textContent  = d.decisions;
+  STATE.accounts = st.accounts; renderAccounts();
+}
+async function reset(){ await api("/api/reset",{}); el("trail").innerHTML=""; await load(); }
+load();
+</script>
+</body>
+</html>
