@@ -1,0 +1,222 @@
+{
+ "calibration_version": "calibration.v3",
+ "supersedes": "calibration.v2",
+ "supersedes_reason": "calibration.v2 FAILED at 18/20 = 0.90; one disagreement (C-001188) exposed a generator-level corpus defect corrected in heldout.v2. v3 runs on the corrected corpus. v1 (0.65) and v2 (0.90) are retained unchanged.",
+ "corpus": "heldout.v2",
+ "corpus_hash": "0f31fa9a442ddc06bda3911f49da5915fb75490dc8b7605122ee3c1b294e71ee",
+ "protocol": "D-G4-8 six-step independent annotation; inputs frozen and hashed before any label is known",
+ "annotation_contract": {
+  "GENERAL": "A bare or unqualified request to stop, cease or end contact or outreach, with no channel restriction in the text.",
+  "CHANNEL_INBOUND": "The text explicitly restricts the opt-out to the channel the message arrived on.",
+  "CHANNEL_OTHER": "The text explicitly restricts the opt-out to a channel other than the arrival channel.",
+  "TEMPORARY": "The request is explicitly limited until a stated date or for a stated period.",
+  "AMBIGUOUS": "The message plausibly indicates an opt-out, but its scope cannot be determined from the text and the arrival channel.",
+  "NONE": "The message is not an opt-out request."
+ },
+ "disambiguation_rule": "Do not infer channel scope from the arrival channel alone. A bare 'stop contacting me' is GENERAL unless the text itself limits the channel. The locked OPT_OUT_POSITIVE definition is unchanged: GENERAL and CHANNEL_INBOUND are both positives.",
+ "label_vocabulary": [
+  "AMBIGUOUS",
+  "CHANNEL_INBOUND",
+  "CHANNEL_OTHER",
+  "GENERAL",
+  "NONE",
+  "TEMPORARY"
+ ],
+ "task": "Read only eval/calibration.v3.view.json. Do not open any answers file.",
+ "threshold": 0.95,
+ "inputs_hash": "a20b14b68e02155dfdb5285e30f0d547822a99d3e8549772fcabaeddd6afc11f",
+ "inputs_hash_definition": "sha256 of the JSON array of the 20 item ids, sorted ascending",
+ "annotator_view": "eval/calibration.v3.view.json",
+ "selection_rule": "deterministic: per stratum, round-robin across languages then ascending item id, over heldout.v2 excluding every item any annotator has already seen",
+ "excluded_as_already_seen": [
+  "C-001000",
+  "C-001001",
+  "C-001002",
+  "C-001003",
+  "C-001004",
+  "C-001005",
+  "C-001006",
+  "C-001007",
+  "C-001008",
+  "C-001009",
+  "C-001010",
+  "C-001012",
+  "C-001039",
+  "C-001040",
+  "C-001041",
+  "C-001042",
+  "C-001043",
+  "C-001044",
+  "C-001045",
+  "C-001046",
+  "C-001047",
+  "C-001048",
+  "C-001049",
+  "C-001050",
+  "C-001051",
+  "C-001052",
+  "C-001053",
+  "C-001054",
+  "C-001055",
+  "C-001056",
+  "C-001057",
+  "C-001058",
+  "C-001059",
+  "C-001060",
+  "C-001061",
+  "C-001062",
+  "C-001063",
+  "C-001064",
+  "C-001065",
+  "C-001066",
+  "C-001067",
+  "C-001068",
+  "C-001069",
+  "C-001105",
+  "C-001109",
+  "C-001113",
+  "C-001130",
+  "C-001131",
+  "C-001154",
+  "C-001155",
+  "C-001183",
+  "C-001187",
+  "C-001188",
+  "C-001201",
+  "C-001202"
+ ],
+ "stratum_plan": {
+  "bare_or_unqualified_stop": 5,
+  "explicit_inbound_channel": 4,
+  "other_channel": 3,
+  "undecidable_scope": 3,
+  "negated_non_optout": 2,
+  "plain_non_optout": 3
+ },
+ "strata_unavailable": {
+  "TEMPORARY": "the corpus holds 3 TEMPORARY items; all 3 were shown in earlier rounds"
+ },
+ "items": [
+  {
+   "id": "C-001013"
+  },
+  {
+   "id": "C-001015"
+  },
+  {
+   "id": "C-001078"
+  },
+  {
+   "id": "C-001107"
+  },
+  {
+   "id": "C-001111"
+  },
+  {
+   "id": "C-001132"
+  },
+  {
+   "id": "C-001133"
+  },
+  {
+   "id": "C-001136"
+  },
+  {
+   "id": "C-001137"
+  },
+  {
+   "id": "C-001143"
+  },
+  {
+   "id": "C-001145"
+  },
+  {
+   "id": "C-001156"
+  },
+  {
+   "id": "C-001161"
+  },
+  {
+   "id": "C-001170"
+  },
+  {
+   "id": "C-001184"
+  },
+  {
+   "id": "C-001189"
+  },
+  {
+   "id": "C-001190"
+  },
+  {
+   "id": "C-001203"
+  },
+  {
+   "id": "C-001348"
+  },
+  {
+   "id": "C-001350"
+  }
+ ],
+ "annotator_labels": {},
+ "result": {
+  "performed": false,
+  "n": 0,
+  "agreement": null,
+  "threshold": 0.95,
+  "inputs_hash": "a20b14b68e02155dfdb5285e30f0d547822a99d3e8549772fcabaeddd6afc11f",
+  "reason": "awaiting independent annotation (D-G4-8 step 3) on the corrected corpus",
+  "provisional_n": 20,
+  "provisional_agreement": 0.85,
+  "provisional_note": "provisional non-human adjudication 17/20; calibration gate NOT passed; performed remains false pending a real independent annotation"
+ },
+ "provenance": [
+  "2026-09-05 v1 0.65 FAIL and v2 0.90 FAIL retained unchanged.",
+  "2026-09-05 heldout.v2 migration corrected 29 mislabelled items; generator routing fixed.",
+  "2026-09-05 v3 selected from heldout.v2, disjoint from every previously shown item.",
+  "CHANNEL_OTHER and AMBIGUOUS strata are testable for the first time.",
+  "2026-09-05 provisional non-human comparison recorded at 17/20; performed stays false."
+ ],
+ "provisional_comparison": {
+  "status": "PROVISIONAL / NON-HUMAN ADJUDICATION",
+  "carries_calibration_credit": false,
+  "labels_source": "labels supplied in the implementation session; not an independent human annotation performed under D-G4-8 step 3",
+  "n": 20,
+  "agreement": 0.85,
+  "threshold": 0.95,
+  "gate": "FAIL",
+  "disagreements": 3,
+  "disagreement_ids": [
+   "C-001189",
+   "C-001348",
+   "C-001350"
+  ],
+  "confusion_authored_to_provisional": {
+   "AMBIGUOUS->CHANNEL_INBOUND": 3
+  },
+  "positive_membership_agreement": 0.85,
+  "analysis": "all three disagreements are NUMBER-on-WhatsApp, where the frozen G4 semantics resolve to AMBIGUOUS per the adjudicated NUMBER_RESOLUTION table. The provisional labels read them as CHANNEL_INBOUND. The frozen semantics are retained unchanged; no corpus, answer, pool or resolution rule was altered to raise this score.",
+  "provisional_labels": {
+   "C-001013": "NONE",
+   "C-001015": "NONE",
+   "C-001078": "NONE",
+   "C-001107": "NONE",
+   "C-001111": "NONE",
+   "C-001132": "CHANNEL_INBOUND",
+   "C-001133": "CHANNEL_INBOUND",
+   "C-001136": "GENERAL",
+   "C-001137": "GENERAL",
+   "C-001143": "CHANNEL_OTHER",
+   "C-001145": "CHANNEL_OTHER",
+   "C-001156": "CHANNEL_INBOUND",
+   "C-001161": "GENERAL",
+   "C-001170": "CHANNEL_OTHER",
+   "C-001184": "CHANNEL_INBOUND",
+   "C-001189": "CHANNEL_INBOUND",
+   "C-001190": "GENERAL",
+   "C-001203": "GENERAL",
+   "C-001348": "CHANNEL_INBOUND",
+   "C-001350": "CHANNEL_INBOUND"
+  }
+ }
+}

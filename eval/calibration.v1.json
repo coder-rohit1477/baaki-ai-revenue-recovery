@@ -1,0 +1,192 @@
+{
+ "calibration_version": "calibration.v1",
+ "protocol": "D-G4-8 six-step independent annotation; inputs frozen and hashed before any label is known",
+ "task": "For each item read only the message text in eval/corpus/heldout.v1.jsonl and record one scope label: GENERAL, CHANNEL_INBOUND, CHANNEL_OTHER, TEMPORARY, AMBIGUOUS or NONE. Do not open eval/corpus/heldout.answers.v1.jsonl.",
+ "label_vocabulary": [
+  "GENERAL",
+  "CHANNEL_INBOUND",
+  "CHANNEL_OTHER",
+  "TEMPORARY",
+  "AMBIGUOUS",
+  "NONE"
+ ],
+ "threshold": 0.95,
+ "inputs_hash": "45885dc9a2d49fdb96805c831428b0647ab59955aed45b466c7e824353cb8d81",
+ "items": [
+  {
+   "id": "C-001040",
+   "language": "en",
+   "message_register": "sms",
+   "bucket": "obfuscated_positive"
+  },
+  {
+   "id": "C-001041",
+   "language": "en",
+   "message_register": "sms",
+   "bucket": "obfuscated_positive"
+  },
+  {
+   "id": "C-001042",
+   "language": "en",
+   "message_register": "whatsapp",
+   "bucket": "obfuscated_positive"
+  },
+  {
+   "id": "C-001048",
+   "language": "hi-Deva",
+   "message_register": "sms",
+   "bucket": "obfuscated_positive"
+  },
+  {
+   "id": "C-001050",
+   "language": "en",
+   "message_register": "email",
+   "bucket": "plain_positive"
+  },
+  {
+   "id": "C-001052",
+   "language": "en",
+   "message_register": "sms",
+   "bucket": "plain_positive"
+  },
+  {
+   "id": "C-001054",
+   "language": "hi-Latn",
+   "message_register": "whatsapp",
+   "bucket": "plain_positive"
+  },
+  {
+   "id": "C-001056",
+   "language": "mixed",
+   "message_register": "email",
+   "bucket": "plain_positive"
+  },
+  {
+   "id": "C-001058",
+   "language": "en",
+   "message_register": "email",
+   "bucket": "plain_positive"
+  },
+  {
+   "id": "C-001045",
+   "language": "hi-Latn",
+   "message_register": "whatsapp",
+   "bucket": "channel_inbound"
+  },
+  {
+   "id": "C-001065",
+   "language": "en",
+   "message_register": "sms",
+   "bucket": "channel_inbound"
+  },
+  {
+   "id": "C-001067",
+   "language": "hi-Latn",
+   "message_register": "whatsapp",
+   "bucket": "channel_inbound"
+  },
+  {
+   "id": "C-001069",
+   "language": "hi-Deva",
+   "message_register": "sms",
+   "bucket": "channel_inbound"
+  },
+  {
+   "id": "C-001059",
+   "language": "en",
+   "message_register": "email",
+   "bucket": "temporary"
+  },
+  {
+   "id": "C-001061",
+   "language": "hi-Latn",
+   "message_register": "sms",
+   "bucket": "temporary"
+  },
+  {
+   "id": "C-001063",
+   "language": "en",
+   "message_register": "whatsapp",
+   "bucket": "temporary"
+  },
+  {
+   "id": "C-001051",
+   "language": "en",
+   "message_register": "email",
+   "bucket": "negated"
+  },
+  {
+   "id": "C-001053",
+   "language": "en",
+   "message_register": "sms",
+   "bucket": "negated"
+  },
+  {
+   "id": "C-001055",
+   "language": "hi-Latn",
+   "message_register": "whatsapp",
+   "bucket": "negated"
+  },
+  {
+   "id": "C-001057",
+   "language": "mixed",
+   "message_register": "email",
+   "bucket": "negated"
+  }
+ ],
+ "annotator_labels": {
+  "C-001040": "CHANNEL_INBOUND",
+  "C-001041": "GENERAL",
+  "C-001042": "CHANNEL_INBOUND",
+  "C-001045": "CHANNEL_INBOUND",
+  "C-001048": "CHANNEL_INBOUND",
+  "C-001050": "CHANNEL_INBOUND",
+  "C-001051": "NONE",
+  "C-001052": "CHANNEL_INBOUND",
+  "C-001053": "NONE",
+  "C-001054": "CHANNEL_INBOUND",
+  "C-001055": "NONE",
+  "C-001056": "CHANNEL_INBOUND",
+  "C-001057": "NONE",
+  "C-001058": "GENERAL",
+  "C-001059": "TEMPORARY",
+  "C-001061": "TEMPORARY",
+  "C-001063": "TEMPORARY",
+  "C-001065": "CHANNEL_INBOUND",
+  "C-001067": "CHANNEL_INBOUND",
+  "C-001069": "CHANNEL_INBOUND"
+ },
+ "result": {
+  "performed": true,
+  "n": 20,
+  "agreement": 0.65,
+  "threshold": 0.95,
+  "inputs_hash": "45885dc9a2d49fdb96805c831428b0647ab59955aed45b466c7e824353cb8d81",
+  "reason": "exact-scope agreement 13/20; every disagreement is GENERAL vs CHANNEL_INBOUND, both OPT_OUT positives, so agreement on OPT_OUT_POSITIVE membership is 20/20"
+ },
+ "inputs_hash_definition": "sha256 of the JSON array of the 20 item ids, sorted ascending",
+ "provenance": [
+  "2026-09-05 assistant displayed an incorrect id list; 15 frozen items were never shown.",
+  "2026-09-05 annotator labels received for the 5 frozen items that were shown; recorded verbatim.",
+  "Frozen selection unchanged; inputs_hash unchanged; no authored answer consulted.",
+  "2026-09-05 remaining 15 labels received; comparison run once; no item edited."
+ ],
+ "comparison": {
+  "exact_scope_agreement": 0.65,
+  "exact_scope_agreements": 13,
+  "disagreements": 7,
+  "disagreement_ids": [
+   "C-001040",
+   "C-001042",
+   "C-001048",
+   "C-001050",
+   "C-001052",
+   "C-001054",
+   "C-001056"
+  ],
+  "positive_membership_agreement": 1.0,
+  "confusion_authored_to_annotator": {
+   "GENERAL->CHANNEL_INBOUND": 7
+  }
+ }
+}

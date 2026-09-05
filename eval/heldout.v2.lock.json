@@ -1,0 +1,20 @@
+{
+ "lock_version": "heldout.lock.v2",
+ "supersedes": "heldout.lock.json",
+ "supersedes_reason": "G4 v1 mislabelled 29 opt-out items: channel-restricting phrases sat in the general core pool, so items inherited GENERAL from the pool rather than their wording. v1 corpus, lock and calibration v1/v2 are retained byte-identical as evidence.",
+ "frozen_at_utc": "2026-09-05T03:42:35+00:00",
+ "git_commit": "b3df471f5fdebcf25b14c9c3ef5813188ec90d29",
+ "corpus_hash": "0f31fa9a442ddc06bda3911f49da5915fb75490dc8b7605122ee3c1b294e71ee",
+ "answers_hash": "22f7f242f1dcb6e58e67e8ec75a4f4c72d1813846993291cc51df4b48a468606",
+ "ext_corpus_hash": "d220abcff74848bea3c66f0fbf1e253d22117863bd91ffba591f8ff5bcd82cfb",
+ "ext_answers_hash": "92edabb8727bc81435fa7d7ba8d1a00f82199950b09b9229ec43ec53fb33935a",
+ "ext_scored": false,
+ "generator_hash": "c18a4524716374f3abac6cdb7869000c00faf10ff3e1b78cc347e90c10a5b4d3",
+ "channels_hash": "281f24ee53bc20295187108b7a0251b64b15b97fd02691486c6bef58bedd9587",
+ "templates_hash": "7ae1549df7ccffb74b9668f947efc48d0f16fb50db788203974aa781a004ca8a",
+ "bank_hash": "b277c823bc19d94e2f13da8eb98d8b60f69d667a57892319648396fe8123f574",
+ "surface_seed_hash": "6c3f2e4e68623e5b6eadbaa79b4d8e177349aa044f06ac86762d645f68909db7",
+ "structure_seed": 20260905,
+ "freeze_hash": "61d90a3261064ad3d4cbd892bcf89268bbe295c32325f254387008c74e2fa95e",
+ "calibration_inputs_hash": "a20b14b68e02155dfdb5285e30f0d547822a99d3e8549772fcabaeddd6afc11f"
+}

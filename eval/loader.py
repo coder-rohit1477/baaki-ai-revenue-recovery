@@ -30,6 +30,42 @@ def load_corpus(path: Path) -> list[CorpusItem]:
     return items
 
 
+def _rows(path: Path) -> dict[str, dict[str, object]]:
+    rows: dict[str, dict[str, object]] = {}
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        item_id = str(row["id"])
+        if item_id in rows:
+            raise ValueError(f"{path.name}:{n}: duplicate id {item_id}")
+        rows[item_id] = row
+    return rows
+
+
+def load_corpus_split(inputs_path: Path, answers_path: Path) -> list[CorpusItem]:
+    """Join a protected split's inputs with its answers strictly by id (D-G4-1).
+
+    The two files are separate so that reading an input never requires opening an answer. Neither file
+    validates as a `CorpusItem` on its own; the joined record does, against the unchanged G1 schema.
+    """
+    inputs, answers = _rows(inputs_path), _rows(answers_path)
+    if inputs.keys() != answers.keys():
+        missing = sorted(inputs.keys() - answers.keys())[:5]
+        extra = sorted(answers.keys() - inputs.keys())[:5]
+        raise ValueError(
+            f"{inputs_path.name} and {answers_path.name} cover different ids "
+            f"(missing answers: {missing}, orphan answers: {extra})"
+        )
+    items: list[CorpusItem] = []
+    for item_id, row in inputs.items():
+        try:
+            items.append(CorpusItem.model_validate_json(json.dumps({**row, **answers[item_id]})))
+        except Exception as e:  # noqa: BLE001 — re-raised with location
+            raise ValueError(f"{inputs_path.name}+{answers_path.name}:{item_id}: {e}") from e
+    return items
+
+
 def validate_corpus(items: list[CorpusItem]) -> list[str]:
     """Return every integrity error (empty list == valid). Pure."""
     errors: list[str] = []

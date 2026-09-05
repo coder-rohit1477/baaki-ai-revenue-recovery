@@ -1,0 +1,190 @@
+{
+ "calibration_version": "calibration.v2",
+ "supersedes": "calibration.v1",
+ "supersedes_reason": "calibration.v1 FAILED at 13/20 = 0.65 against the 0.95 threshold; all 7 disagreements were authored GENERAL vs annotator CHANNEL_INBOUND, an under-specified annotation contract rather than an annotator or corpus error. v1 is retained unchanged.",
+ "protocol": "D-G4-8 six-step independent annotation; inputs frozen and hashed before any label is known",
+ "annotation_contract": {
+  "GENERAL": "A bare or unqualified request to stop, cease or end contact or outreach, with no channel restriction in the text.",
+  "CHANNEL_INBOUND": "The text explicitly restricts the opt-out to the channel the message arrived on.",
+  "CHANNEL_OTHER": "The text explicitly restricts the opt-out to a channel other than the arrival channel.",
+  "TEMPORARY": "The request is explicitly limited until a stated date or for a stated period.",
+  "AMBIGUOUS": "The message plausibly indicates an opt-out, but its scope cannot be determined from the text and the arrival channel.",
+  "NONE": "The message is not an opt-out request."
+ },
+ "disambiguation_rule": "Do not infer channel scope from the arrival channel alone. A bare 'stop contacting me' is GENERAL unless the text itself limits the channel. The locked OPT_OUT_POSITIVE definition is unchanged: GENERAL and CHANNEL_INBOUND are both positives.",
+ "label_vocabulary": [
+  "AMBIGUOUS",
+  "CHANNEL_INBOUND",
+  "CHANNEL_OTHER",
+  "GENERAL",
+  "NONE",
+  "TEMPORARY"
+ ],
+ "task": "Read only eval/calibration.v2.view.json and record one scope label per item. Do not open eval/corpus/heldout.answers.v1.jsonl.",
+ "threshold": 0.95,
+ "inputs_hash": "55a85dd26038b00309d23e6b90e7e6951b145c398d8a2c40ab6b7a4514aae69c",
+ "inputs_hash_definition": "sha256 of the JSON array of the 20 item ids, sorted ascending",
+ "annotator_view": "eval/calibration.v2.view.json",
+ "selection_rule": "deterministic: per stratum, round-robin across languages then ascending item id, over the scored held-out corpus excluding every item the annotator has already seen or labelled",
+ "excluded_as_already_seen": [
+  "C-001000",
+  "C-001001",
+  "C-001002",
+  "C-001003",
+  "C-001004",
+  "C-001005",
+  "C-001006",
+  "C-001007",
+  "C-001008",
+  "C-001009",
+  "C-001040",
+  "C-001041",
+  "C-001042",
+  "C-001043",
+  "C-001044",
+  "C-001045",
+  "C-001046",
+  "C-001047",
+  "C-001048",
+  "C-001049",
+  "C-001050",
+  "C-001051",
+  "C-001052",
+  "C-001053",
+  "C-001054",
+  "C-001055",
+  "C-001056",
+  "C-001057",
+  "C-001058",
+  "C-001059",
+  "C-001061",
+  "C-001063",
+  "C-001065",
+  "C-001067",
+  "C-001069"
+ ],
+ "stratum_plan": {
+  "bare_or_unqualified_stop": 8,
+  "explicit_inbound_channel": 6,
+  "negated_non_optout": 3,
+  "plain_non_optout": 3
+ },
+ "strata_unavailable": {
+  "TEMPORARY": "the scored corpus holds 3 TEMPORARY items; all 3 were used in calibration.v1",
+  "CHANNEL_OTHER": "the scored corpus holds none; adding them would need entries in the frozen eval/gap_metadata.v1.json",
+  "AMBIGUOUS": "the scored corpus holds none"
+ },
+ "items": [
+  {
+   "id": "C-001010"
+  },
+  {
+   "id": "C-001012"
+  },
+  {
+   "id": "C-001039"
+  },
+  {
+   "id": "C-001060"
+  },
+  {
+   "id": "C-001062"
+  },
+  {
+   "id": "C-001064"
+  },
+  {
+   "id": "C-001066"
+  },
+  {
+   "id": "C-001068"
+  },
+  {
+   "id": "C-001105"
+  },
+  {
+   "id": "C-001109"
+  },
+  {
+   "id": "C-001113"
+  },
+  {
+   "id": "C-001130"
+  },
+  {
+   "id": "C-001131"
+  },
+  {
+   "id": "C-001154"
+  },
+  {
+   "id": "C-001155"
+  },
+  {
+   "id": "C-001183"
+  },
+  {
+   "id": "C-001187"
+  },
+  {
+   "id": "C-001188"
+  },
+  {
+   "id": "C-001201"
+  },
+  {
+   "id": "C-001202"
+  }
+ ],
+ "annotator_labels": {
+  "C-001010": "NONE",
+  "C-001012": "NONE",
+  "C-001039": "NONE",
+  "C-001060": "GENERAL",
+  "C-001062": "GENERAL",
+  "C-001064": "GENERAL",
+  "C-001066": "GENERAL",
+  "C-001068": "GENERAL",
+  "C-001105": "NONE",
+  "C-001109": "NONE",
+  "C-001113": "NONE",
+  "C-001130": "CHANNEL_OTHER",
+  "C-001131": "CHANNEL_INBOUND",
+  "C-001154": "CHANNEL_INBOUND",
+  "C-001155": "CHANNEL_INBOUND",
+  "C-001183": "CHANNEL_INBOUND",
+  "C-001187": "GENERAL",
+  "C-001188": "CHANNEL_OTHER",
+  "C-001201": "CHANNEL_INBOUND",
+  "C-001202": "GENERAL"
+ },
+ "result": {
+  "performed": true,
+  "n": 20,
+  "agreement": 0.9,
+  "threshold": 0.95,
+  "inputs_hash": "55a85dd26038b00309d23e6b90e7e6951b145c398d8a2c40ab6b7a4514aae69c",
+  "reason": "exact-scope agreement 18/20 under the clarified contract; 2 disagreement(s), both involving CHANNEL_OTHER, which is outside OPT_OUT_POSITIVE, so positive-membership agreement is 18/20"
+ },
+ "provenance": [
+  "2026-09-05 calibration.v1 executed: 13/20 = 0.65, FAIL; preserved unchanged in eval/calibration.v1.json.",
+  "2026-09-05 annotation contract clarified (bare stop = GENERAL); OPT_OUT_POSITIVE unchanged.",
+  "2026-09-05 fresh set selected, disjoint from calibration.v1 and from every item already shown to the annotator.",
+  "Item wording was not consulted against, or altered by, any authored answer; authored scopes were read for stratification only.",
+  "2026-09-05 v2 labels received and compared once; no item edited, no authored answer changed."
+ ],
+ "comparison": {
+  "exact_scope_agreement": 0.9,
+  "exact_scope_agreements": 18,
+  "disagreements": 2,
+  "disagreement_ids": [
+   "C-001130",
+   "C-001188"
+  ],
+  "positive_membership_agreement": 0.9,
+  "confusion_authored_to_annotator": {
+   "CHANNEL_INBOUND->CHANNEL_OTHER": 1,
+   "GENERAL->CHANNEL_OTHER": 1
+  }
+ }
+}

@@ -23,6 +23,11 @@ FREEZE_FILES: Final[tuple[str, ...]] = (
     "eval/sut/classify.py",
     "eval/gap_metadata.v1.json",
     "eval/defects.v1.json",
+    "eval/gen/templates.v1.json",
+    "eval/gen/templates.v2.json",
+    "eval/gen/channels.py",
+    # eval/gen/bank.v1.json is deliberately absent: it is protected and never committed, so a public
+    # clone could not compute this manifest. Its hash is pinned in eval/heldout.lock.json instead.
 )
 
 

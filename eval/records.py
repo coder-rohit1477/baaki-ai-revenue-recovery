@@ -230,9 +230,14 @@ class GateResult(BaseModel):
     comparator: Literal[">=", "<=", "=="]
     threshold: float
     value: float | None
-    verdict: Literal["PASS", "FAIL", "NOT_EVALUATED"]
+    verdict: Literal["PASS", "FAIL", "NOT_EVALUATED", "INCONCLUSIVE"]
     reason: str | None = None
     evaluated_on_split: str
+    numerator: int | None = None
+    denominator: int | None = None
+    ci_low: float | None = None  # Wilson 95% lower bound, or the rule-of-three bound on a zero-miss run
+    ci_high: float | None = None
+    stratum: str | None = None  # set on per-stratum gates; None on the aggregate gate
 
 
 class RunIdentity(BaseModel):
@@ -270,6 +275,50 @@ class ChainCoverage(BaseModel):
     model_config = _STRICT
     n_items: int = Field(ge=0)
     n_adversarial: int = Field(ge=0)
+
+
+class HeldoutLock(BaseModel):
+    """The frozen identity of a protected split, as recorded at freeze time and recomputed at run time."""
+
+    model_config = _STRICT
+    lock_version: str
+    supersedes: str | None = None
+    supersedes_reason: str | None = None
+    frozen_at_utc: str
+    git_commit: str | None = None
+    corpus_hash: str
+    answers_hash: str
+    ext_corpus_hash: str
+    ext_answers_hash: str
+    ext_scored: bool = False  # D-G4-11a: the extension is never scored during G4
+    generator_hash: str
+    templates_hash: str
+    channels_hash: str | None = None
+    bank_hash: str  # the surface bank itself is never committed (D-G4-7b)
+    surface_seed_hash: str  # a commitment, never the plaintext seed (D-G4-7)
+    structure_seed: int
+    freeze_hash: str
+    calibration_inputs_hash: str | None = None
+    observed_corpus_hash: str | None = None
+    observed_answers_hash: str | None = None
+    observed_freeze_hash: str | None = None
+    freeze_status: Literal["MATCHES_LOCK", "DRIFTED", "NO_LOCK"] = "NO_LOCK"
+
+
+class Calibration(BaseModel):
+    """Independent annotation agreement on the OPT_OUT boundary (D-G4-8)."""
+
+    model_config = _STRICT
+    performed: bool  # true only for a real independent human annotation (D-G4-8 step 3)
+    n: int = Field(default=0, ge=0)
+    agreement: float | None = None
+    threshold: float | None = None
+    inputs_hash: str | None = None
+    reason: str | None = None
+    # A provisional, NON-HUMAN adjudication carries no calibration credit and never sets `performed`.
+    provisional_n: int | None = None
+    provisional_agreement: float | None = None
+    provisional_note: str | None = None
 
 
 class DatabaseCoverage(BaseModel):
@@ -316,6 +365,14 @@ class RunArtifact(BaseModel):
     )
     chain_sut_coverage: ChainCoverage
     database_coverage: DatabaseCoverage  # D-G3-7
+    evidence_class: Literal[
+        "BOOTSTRAP", "REGRESSION_DETERMINISTIC", "SECURITY_DATABASE", "HELDOUT_DETERMINISTIC", "HELDOUT_LIVE"
+    ] = "REGRESSION_DETERMINISTIC"  # D-G4-4; G4 emits HELDOUT_DETERMINISTIC only
+    contamination_status: Literal["CLEAN", "CONTAMINATED"] = "CLEAN"
+    heldout_lock: HeldoutLock | None = None
+    stratum_gates: list[GateResult] = Field(default_factory=list)  # worst-first
+    calibration: Calibration | None = None
+    touch_log_digest: str | None = None
     evaluation_schema_validation: MetricValue
     not_available_offline: dict[str, str]
     comparison_hash: str

@@ -1,0 +1,17 @@
+{
+ "lock_version": "heldout.lock.v1",
+ "frozen_at_utc": "2026-09-05T02:24:35+00:00",
+ "git_commit": "b3df471f5fdebcf25b14c9c3ef5813188ec90d29",
+ "corpus_hash": "813ef633f34237da890db4bac37cf5051366506b481bb3297f880ac14eb6b568",
+ "answers_hash": "c0dedef817f8c34e8a979209f100847bd4c5e518aeb1cace6aeef5487231384c",
+ "ext_corpus_hash": "6d4672671f884b9c4f3529040074956c250ee44ba64f3cb92837a9dc88748686",
+ "ext_answers_hash": "d57a4e18bcf7bde87a7035e5c110b0657543b1f9cb23a0e6165b5fc6d0375512",
+ "ext_scored": false,
+ "generator_hash": "dc51ef7303a2cfb2ac924efda528ee5e3cc77f59a958e76859249d24d2ec6f27",
+ "templates_hash": "3635c3f0e9a4e39ecd2fad0fea2e7640b988033edc2bca96b5c50b88258aec66",
+ "bank_hash": "9475634e5921a29500b7f2ef5ad845a08144f51c81443e362ed0c54162bf569a",
+ "surface_seed_hash": "6c3f2e4e68623e5b6eadbaa79b4d8e177349aa044f06ac86762d645f68909db7",
+ "structure_seed": 20260905,
+ "freeze_hash": "ae83d5c1671bb1267bf48c503feaed5ddead91c5c9343e39a1ffb1f0b2874e23",
+ "calibration_inputs_hash": "45885dc9a2d49fdb96805c831428b0647ab59955aed45b466c7e824353cb8d81"
+}

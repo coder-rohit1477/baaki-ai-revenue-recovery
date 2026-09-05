@@ -1,0 +1,110 @@
+{
+ "templates_version": "templates.v2",
+ "structure_seed": 20260905,
+ "note": "Structures, seeds and stratum targets only. Surface forms live in the protected bank (eval/gen/bank.v1.json), which is not committed; a public clone cannot reconstruct the corpus. v2: channel-restricting cores are routed to their channel pool and a NUMBER-only pool supplies AMBIGUOUS items.",
+ "compositions": {
+  "optout_general": [
+   "opener",
+   "optout_general",
+   "reason",
+   "closer"
+  ],
+  "optout_channel": [
+   "opener",
+   "optout_channel",
+   "reason",
+   "closer"
+  ],
+  "intent_core": [
+   "opener",
+   "intent_core",
+   "closer"
+  ]
+ },
+ "scored": {
+  "total": 340,
+  "id_range": [
+   "C-001000",
+   "C-001351"
+  ],
+  "intent_targets": {
+   "UNSUBSCRIBE": 100,
+   "WILL_PAY_ON_DATE": 30,
+   "REQUEST_INSTALLMENTS": 20,
+   "DISPUTE_AMOUNT": 25,
+   "DISPUTE_DELIVERY": 20,
+   "ALREADY_PAID_CLAIM": 25,
+   "NEEDS_DOCUMENT": 20,
+   "WRONG_CONTACT": 25,
+   "NO_CLEAR_INTENT": 75
+  },
+  "optout_language_floors": {
+   "en": 35,
+   "hi-Latn": 35,
+   "mixed": 20,
+   "hi-Deva": 10
+  },
+  "channel_inbound_share": 0.25,
+  "core_slice": [
+   0,
+   0.5
+  ]
+ },
+ "extension": {
+  "total": 200,
+  "id_range": [
+   "C-001500",
+   "C-001709"
+  ],
+  "optout_language_targets": {
+   "en": 70,
+   "hi-Latn": 70,
+   "mixed": 40,
+   "hi-Deva": 20
+  },
+  "channel_inbound_share": 0.25,
+  "core_slice": [
+   0.5,
+   1.0
+  ]
+ },
+ "profiles": {
+  "cycle": [
+   "P-OVERDUE-15",
+   "P-OVERDUE-3",
+   "P-MULTI-INVOICE",
+   "P-SMS-ONLY",
+   "P-DISPUTED",
+   "P-PAID-CLAIM-PENDING",
+   "P-CONTACT-OPTED-OUT",
+   "P-CAPPED"
+  ],
+  "optout_cycle": [
+   "P-OVERDUE-15",
+   "P-OVERDUE-3",
+   "P-MULTI-INVOICE",
+   "P-SMS-ONLY",
+   "P-CAPPED"
+  ]
+ },
+ "registers": [
+  "email",
+  "sms",
+  "whatsapp",
+  "transcript"
+ ],
+ "supersedes": "templates.v1",
+ "ambiguous": {
+  "per_language": {
+   "en": 2,
+   "hi-Latn": 1,
+   "mixed": 1,
+   "hi-Deva": 0
+  },
+  "registers": [
+   "whatsapp",
+   "transcript"
+  ],
+  "note": "deliberate AMBIGUOUS source; never OPT_OUT positive, never UNSUBSCRIBE"
+ }
+}

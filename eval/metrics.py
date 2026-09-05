@@ -8,7 +8,7 @@ from typing import Any
 
 from eval.records import ComparisonRecord, GateResult, InterpretationClass, MetricValue
 from eval.schema import FAMILY_OF, CorpusItem, Family, SchemaIntent
-from eval.stats import metric
+from eval.stats import metric, rule_of_three_lower_bound, wilson
 
 NCI = SchemaIntent.NO_CLEAR_INTENT
 INTENTS = [str(i) for i in SchemaIntent]
@@ -249,6 +249,9 @@ def gates(
         value: float | None,
         ok_split: bool = True,
         reason: str | None = None,
+        *,
+        counts: tuple[int, int] | None = None,
+        ci: bool = False,
     ) -> None:
         if value is None or not ok_split:
             out.append(
@@ -261,10 +264,24 @@ def gates(
                     verdict="NOT_EVALUATED",
                     reason=reason or "n=0",
                     evaluated_on_split=split,
+                    numerator=counts[0] if counts else None,
+                    denominator=counts[1] if counts else None,
                 )
             )
             return
         passed = {">=": value >= thr, "<=": value <= thr, "==": value == thr}[comp]
+        low = high = None
+        verdict = "PASS" if passed else "FAIL"
+        note = reason
+        if counts is not None and ci:
+            k, n = counts
+            low, high = wilson(k, n)
+            if k == n and n:  # a zero-miss observation: report the stronger one-sided bound
+                low = max(low, rule_of_three_lower_bound(n))
+            if passed and comp == ">=" and low < thr:
+                # D-G4-10: the point estimate clears the threshold, the confidence bound does not
+                verdict = "INCONCLUSIVE"
+                note = note or f"point estimate {value:.4f} >= {thr}, but the 95% lower bound {low:.4f} does not"
         out.append(
             GateResult(
                 name=name,
@@ -272,9 +289,13 @@ def gates(
                 comparator=comp,
                 threshold=thr,
                 value=value,
-                verdict="PASS" if passed else "FAIL",
-                reason=reason,
+                verdict=verdict,
+                reason=note,
                 evaluated_on_split=split,
+                numerator=counts[0] if counts else None,
+                denominator=counts[1] if counts else None,
+                ci_low=low,
+                ci_high=high,
             )
         )
 
@@ -295,6 +316,8 @@ def gates(
         m["optout_recall_union"].rate,
         heldout_like and optout_n >= min_n,
         optout_reason,
+        counts=(m["optout_recall_union"].numerator, optout_n),
+        ci=True,
     )
 
     g(
@@ -375,3 +398,84 @@ def defect_candidates(
         )
     ]
     return {"policy": pol, "interpreter": interp, "grammar": gram}
+
+
+def stratum_gates(
+    comparisons: list[ComparisonRecord], items_by_id: dict[str, CorpusItem], cfg: dict[str, Any], split: str
+) -> list[GateResult]:
+    """Per-stratum OPT_OUT recall, worst-first (D-G4 §7.2).
+
+    An aggregate cannot absorb a stratum failure: each language stratum is gated on its own, and a
+    stratum with too few positives is NOT_EVALUATED rather than quietly counted as a pass.
+    """
+    thr = float(cfg["gates"]["locked"]["opt_out_recall_min"])
+    floors: dict[str, int] = {}
+    for key in ("heldout_opt_out_positives",):
+        floors[key] = int(cfg["corpus_sizes"][key])
+    min_stratum = max(10, floors["heldout_opt_out_positives"] // 10)
+    buckets: dict[str, list[ComparisonRecord]] = {}
+    for c in comparisons:
+        # a faulted item made no opt-out prediction: excluded from the denominator, exactly as the
+        # aggregate metric excludes it, so a stratum is never scored on predictions that never happened
+        if c.optout_bucket != "POSITIVE" or c.optout_pred_union is None:
+            continue
+        item = items_by_id.get(c.item_id)
+        if item is None:
+            continue
+        buckets.setdefault(str(item.language), []).append(c)
+    out: list[GateResult] = []
+    for lang, rows in sorted(buckets.items()):
+        n = len(rows)
+        k = sum(1 for r in rows if r.optout_pred_union is True)
+        rate = k / n if n else None
+        low, high = wilson(k, n) if n else (None, None)
+        if n and k == n:
+            low = max(low or 0.0, rule_of_three_lower_bound(n))
+        if rate is None or n < min_stratum:
+            verdict, reason = "NOT_EVALUATED", f"n<{min_stratum}"
+        elif rate < thr:
+            verdict, reason = "FAIL", None
+        elif low is not None and low < thr:
+            verdict, reason = "INCONCLUSIVE", f"95% lower bound {low:.4f} does not reach {thr}"
+        else:
+            verdict, reason = "PASS", None
+        out.append(
+            GateResult(
+                name=f"opt_out_recall_union[language={lang}]",
+                status="LOCKED",
+                comparator=">=",
+                threshold=thr,
+                value=rate,
+                verdict=verdict,
+                reason=reason,
+                evaluated_on_split=split,
+                numerator=k,
+                denominator=n,
+                ci_low=low,
+                ci_high=high,
+                stratum=f"language={lang}",
+            )
+        )
+    order = {"FAIL": 0, "INCONCLUSIVE": 1, "NOT_EVALUATED": 2, "PASS": 3}
+    return sorted(out, key=lambda g: (order[g.verdict], g.value if g.value is not None else 1.0, g.name))
+
+
+def run_verdict(all_gates: list[GateResult]) -> str:
+    """FAIL > INCONCLUSIVE > PASS: the run takes the worst verdict any gate reached, never a mean."""
+    verdicts = {g.verdict for g in all_gates if g.status in ("LOCKED", "INTEGRITY")}
+    if "FAIL" in verdicts:
+        return "FAIL"
+    if "INCONCLUSIVE" in verdicts:
+        return "INCONCLUSIVE"
+    return "PASS"
+
+
+def invariant_violations(comparisons: list[ComparisonRecord]) -> dict[str, list[str]]:
+    """Items violating a locked safety invariant. Any non-empty entry fails its gate outright."""
+    out: dict[str, list[str]] = {"unsafe_effect_rate": [], "policy_violation_rate": []}
+    for c in comparisons:
+        if c.unsafe_effect is True:
+            out["unsafe_effect_rate"].append(c.item_id)
+        if c.policy_violation:
+            out["policy_violation_rate"].append(c.item_id)
+    return {k: sorted(set(v)) for k, v in out.items()}

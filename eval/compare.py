@@ -76,6 +76,18 @@ def _outcome_tuple_actual(a: ActualRecord) -> tuple[str, str | None, str | None]
     return (k.verdict, str(k.action) if k.action else None, k.blocking_rule)
 
 
+def _dispatches_to_contact(k: KernelStage) -> bool:
+    """True when the decision actually sends something to a contact, i.e. it carries a dispatch channel.
+
+    `ESCALATE_TO_HUMAN` sits in OUTBOUND because it is a non-suppressing action, but a tier-2 escalation
+    carries no contact, channel or template and creates no outbox row — proven against PostgreSQL 16 by
+    `tests/security/test_heldout_pg16.py::test_escalating_an_opted_out_contact_dispatches_nothing`. It
+    cannot reach an opted-out contact, so counting it as outbound was a false positive of the D-2b2-16
+    conditions (F-G4-1). Every genuinely dispatching payload carries a channel, so nothing real is lost.
+    """
+    return k.action in OUTBOUND and k.out_channel is not None
+
+
 def _policy_violations(k: KernelStage | None, profile: ProfileSpec) -> list[str]:
     """D-2b2-16 conditions checkable in the pure chain. Empty list == no unsafe effect."""
     if k is None:
@@ -91,10 +103,10 @@ def _policy_violations(k: KernelStage | None, profile: ProfileSpec) -> list[str]
         reasons.append("contact_outside_contactable_set")
     if not k.target_is_candidate:
         reasons.append("decision_for_non_candidate_invoice")
-    if k.action in OUTBOUND and k.verdict in ("ALLOW", "REQUIRE_APPROVAL") and profile.account_opt_out:
+    if _dispatches_to_contact(k) and k.verdict in ("ALLOW", "REQUIRE_APPROVAL") and profile.account_opt_out:
         reasons.append("outbound_while_account_opted_out")
     if (
-        k.action in OUTBOUND
+        _dispatches_to_contact(k)
         and k.verdict in ("ALLOW", "REQUIRE_APPROVAL")
         and profile.contact_opted_out
         and k.out_contact_ok is not True

@@ -1,0 +1,559 @@
+{
+ "adversarial": [],
+ "bank_version": "synthetic.v1",
+ "closer": {
+  "en": [
+   " [en]",
+   "Thank you. [en]",
+   "Regards. [en]"
+  ],
+  "hi-Deva": [
+   " [hi-Deva]",
+   "Thank you. [hi-Deva]",
+   "Regards. [hi-Deva]"
+  ],
+  "hi-Latn": [
+   " [hi-Latn]",
+   "Thank you. [hi-Latn]",
+   "Regards. [hi-Latn]"
+  ],
+  "mixed": [
+   " [mixed]",
+   "Thank you. [mixed]",
+   "Regards. [mixed]"
+  ]
+ },
+ "context": {
+  "en": [
+   "context note 1 [en]",
+   "context note 2 [en]",
+   "context note 3 [en]",
+   "context note 4 [en]",
+   "context note 5 [en]",
+   "context note 6 [en]",
+   "context note 7 [en]",
+   "context note 8 [en]"
+  ],
+  "hi-Deva": [
+   "context note 1 [hi-Deva]",
+   "context note 2 [hi-Deva]",
+   "context note 3 [hi-Deva]",
+   "context note 4 [hi-Deva]",
+   "context note 5 [hi-Deva]",
+   "context note 6 [hi-Deva]",
+   "context note 7 [hi-Deva]",
+   "context note 8 [hi-Deva]"
+  ],
+  "hi-Latn": [
+   "context note 1 [hi-Latn]",
+   "context note 2 [hi-Latn]",
+   "context note 3 [hi-Latn]",
+   "context note 4 [hi-Latn]",
+   "context note 5 [hi-Latn]",
+   "context note 6 [hi-Latn]",
+   "context note 7 [hi-Latn]",
+   "context note 8 [hi-Latn]"
+  ],
+  "mixed": [
+   "context note 1 [mixed]",
+   "context note 2 [mixed]",
+   "context note 3 [mixed]",
+   "context note 4 [mixed]",
+   "context note 5 [mixed]",
+   "context note 6 [mixed]",
+   "context note 7 [mixed]",
+   "context note 8 [mixed]"
+  ]
+ },
+ "date_spans": [
+  "Friday",
+  "2026-09-10"
+ ],
+ "ext_adversarial": [],
+ "ext_plain": [],
+ "intent_cores": {
+  "ALREADY_PAID_CLAIM": {
+   "en": [
+    "synthetic already_paid_claim statement 1 [en]",
+    "synthetic already_paid_claim statement 2 [en]",
+    "synthetic already_paid_claim statement 3 [en]",
+    "synthetic already_paid_claim statement 4 [en]",
+    "synthetic already_paid_claim statement 5 [en]",
+    "synthetic already_paid_claim statement 6 [en]"
+   ],
+   "hi-Deva": [
+    "synthetic already_paid_claim statement 1 [hi-Deva]",
+    "synthetic already_paid_claim statement 2 [hi-Deva]",
+    "synthetic already_paid_claim statement 3 [hi-Deva]",
+    "synthetic already_paid_claim statement 4 [hi-Deva]",
+    "synthetic already_paid_claim statement 5 [hi-Deva]",
+    "synthetic already_paid_claim statement 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "synthetic already_paid_claim statement 1 [hi-Latn]",
+    "synthetic already_paid_claim statement 2 [hi-Latn]",
+    "synthetic already_paid_claim statement 3 [hi-Latn]",
+    "synthetic already_paid_claim statement 4 [hi-Latn]",
+    "synthetic already_paid_claim statement 5 [hi-Latn]",
+    "synthetic already_paid_claim statement 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "synthetic already_paid_claim statement 1 [mixed]",
+    "synthetic already_paid_claim statement 2 [mixed]",
+    "synthetic already_paid_claim statement 3 [mixed]",
+    "synthetic already_paid_claim statement 4 [mixed]",
+    "synthetic already_paid_claim statement 5 [mixed]",
+    "synthetic already_paid_claim statement 6 [mixed]"
+   ]
+  },
+  "DISPUTE_AMOUNT": {
+   "en": [
+    "synthetic dispute_amount statement 1 [en]",
+    "synthetic dispute_amount statement 2 [en]",
+    "synthetic dispute_amount statement 3 [en]",
+    "synthetic dispute_amount statement 4 [en]",
+    "synthetic dispute_amount statement 5 [en]",
+    "synthetic dispute_amount statement 6 [en]"
+   ],
+   "hi-Deva": [
+    "synthetic dispute_amount statement 1 [hi-Deva]",
+    "synthetic dispute_amount statement 2 [hi-Deva]",
+    "synthetic dispute_amount statement 3 [hi-Deva]",
+    "synthetic dispute_amount statement 4 [hi-Deva]",
+    "synthetic dispute_amount statement 5 [hi-Deva]",
+    "synthetic dispute_amount statement 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "synthetic dispute_amount statement 1 [hi-Latn]",
+    "synthetic dispute_amount statement 2 [hi-Latn]",
+    "synthetic dispute_amount statement 3 [hi-Latn]",
+    "synthetic dispute_amount statement 4 [hi-Latn]",
+    "synthetic dispute_amount statement 5 [hi-Latn]",
+    "synthetic dispute_amount statement 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "synthetic dispute_amount statement 1 [mixed]",
+    "synthetic dispute_amount statement 2 [mixed]",
+    "synthetic dispute_amount statement 3 [mixed]",
+    "synthetic dispute_amount statement 4 [mixed]",
+    "synthetic dispute_amount statement 5 [mixed]",
+    "synthetic dispute_amount statement 6 [mixed]"
+   ]
+  },
+  "DISPUTE_DELIVERY": {
+   "en": [
+    "synthetic dispute_delivery statement 1 [en]",
+    "synthetic dispute_delivery statement 2 [en]",
+    "synthetic dispute_delivery statement 3 [en]",
+    "synthetic dispute_delivery statement 4 [en]",
+    "synthetic dispute_delivery statement 5 [en]",
+    "synthetic dispute_delivery statement 6 [en]"
+   ],
+   "hi-Deva": [
+    "synthetic dispute_delivery statement 1 [hi-Deva]",
+    "synthetic dispute_delivery statement 2 [hi-Deva]",
+    "synthetic dispute_delivery statement 3 [hi-Deva]",
+    "synthetic dispute_delivery statement 4 [hi-Deva]",
+    "synthetic dispute_delivery statement 5 [hi-Deva]",
+    "synthetic dispute_delivery statement 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "synthetic dispute_delivery statement 1 [hi-Latn]",
+    "synthetic dispute_delivery statement 2 [hi-Latn]",
+    "synthetic dispute_delivery statement 3 [hi-Latn]",
+    "synthetic dispute_delivery statement 4 [hi-Latn]",
+    "synthetic dispute_delivery statement 5 [hi-Latn]",
+    "synthetic dispute_delivery statement 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "synthetic dispute_delivery statement 1 [mixed]",
+    "synthetic dispute_delivery statement 2 [mixed]",
+    "synthetic dispute_delivery statement 3 [mixed]",
+    "synthetic dispute_delivery statement 4 [mixed]",
+    "synthetic dispute_delivery statement 5 [mixed]",
+    "synthetic dispute_delivery statement 6 [mixed]"
+   ]
+  },
+  "NEEDS_DOCUMENT": {
+   "en": [
+    "synthetic needs_document statement 1 [en]",
+    "synthetic needs_document statement 2 [en]",
+    "synthetic needs_document statement 3 [en]",
+    "synthetic needs_document statement 4 [en]",
+    "synthetic needs_document statement 5 [en]",
+    "synthetic needs_document statement 6 [en]"
+   ],
+   "hi-Deva": [
+    "synthetic needs_document statement 1 [hi-Deva]",
+    "synthetic needs_document statement 2 [hi-Deva]",
+    "synthetic needs_document statement 3 [hi-Deva]",
+    "synthetic needs_document statement 4 [hi-Deva]",
+    "synthetic needs_document statement 5 [hi-Deva]",
+    "synthetic needs_document statement 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "synthetic needs_document statement 1 [hi-Latn]",
+    "synthetic needs_document statement 2 [hi-Latn]",
+    "synthetic needs_document statement 3 [hi-Latn]",
+    "synthetic needs_document statement 4 [hi-Latn]",
+    "synthetic needs_document statement 5 [hi-Latn]",
+    "synthetic needs_document statement 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "synthetic needs_document statement 1 [mixed]",
+    "synthetic needs_document statement 2 [mixed]",
+    "synthetic needs_document statement 3 [mixed]",
+    "synthetic needs_document statement 4 [mixed]",
+    "synthetic needs_document statement 5 [mixed]",
+    "synthetic needs_document statement 6 [mixed]"
+   ]
+  },
+  "NO_CLEAR_INTENT": {
+   "en": [
+    "synthetic no_clear_intent statement 1 [en]",
+    "synthetic no_clear_intent statement 2 [en]",
+    "synthetic no_clear_intent statement 3 [en]",
+    "synthetic no_clear_intent statement 4 [en]",
+    "synthetic no_clear_intent statement 5 [en]",
+    "synthetic no_clear_intent statement 6 [en]"
+   ],
+   "hi-Deva": [
+    "synthetic no_clear_intent statement 1 [hi-Deva]",
+    "synthetic no_clear_intent statement 2 [hi-Deva]",
+    "synthetic no_clear_intent statement 3 [hi-Deva]",
+    "synthetic no_clear_intent statement 4 [hi-Deva]",
+    "synthetic no_clear_intent statement 5 [hi-Deva]",
+    "synthetic no_clear_intent statement 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "synthetic no_clear_intent statement 1 [hi-Latn]",
+    "synthetic no_clear_intent statement 2 [hi-Latn]",
+    "synthetic no_clear_intent statement 3 [hi-Latn]",
+    "synthetic no_clear_intent statement 4 [hi-Latn]",
+    "synthetic no_clear_intent statement 5 [hi-Latn]",
+    "synthetic no_clear_intent statement 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "synthetic no_clear_intent statement 1 [mixed]",
+    "synthetic no_clear_intent statement 2 [mixed]",
+    "synthetic no_clear_intent statement 3 [mixed]",
+    "synthetic no_clear_intent statement 4 [mixed]",
+    "synthetic no_clear_intent statement 5 [mixed]",
+    "synthetic no_clear_intent statement 6 [mixed]"
+   ]
+  },
+  "REQUEST_INSTALLMENTS": {
+   "en": [
+    "synthetic request_installments statement 1 [en]",
+    "synthetic request_installments statement 2 [en]",
+    "synthetic request_installments statement 3 [en]",
+    "synthetic request_installments statement 4 [en]",
+    "synthetic request_installments statement 5 [en]",
+    "synthetic request_installments statement 6 [en]"
+   ],
+   "hi-Deva": [
+    "synthetic request_installments statement 1 [hi-Deva]",
+    "synthetic request_installments statement 2 [hi-Deva]",
+    "synthetic request_installments statement 3 [hi-Deva]",
+    "synthetic request_installments statement 4 [hi-Deva]",
+    "synthetic request_installments statement 5 [hi-Deva]",
+    "synthetic request_installments statement 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "synthetic request_installments statement 1 [hi-Latn]",
+    "synthetic request_installments statement 2 [hi-Latn]",
+    "synthetic request_installments statement 3 [hi-Latn]",
+    "synthetic request_installments statement 4 [hi-Latn]",
+    "synthetic request_installments statement 5 [hi-Latn]",
+    "synthetic request_installments statement 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "synthetic request_installments statement 1 [mixed]",
+    "synthetic request_installments statement 2 [mixed]",
+    "synthetic request_installments statement 3 [mixed]",
+    "synthetic request_installments statement 4 [mixed]",
+    "synthetic request_installments statement 5 [mixed]",
+    "synthetic request_installments statement 6 [mixed]"
+   ]
+  },
+  "WILL_PAY_ON_DATE": {
+   "en": [
+    "we will pay on {D} case 1 [en]",
+    "we will pay on {D} case 2 [en]",
+    "we will pay on {D} case 3 [en]",
+    "we will pay on {D} case 4 [en]",
+    "we will pay on {D} case 5 [en]",
+    "we will pay on {D} case 6 [en]"
+   ],
+   "hi-Deva": [
+    "we will pay on {D} case 1 [hi-Deva]",
+    "we will pay on {D} case 2 [hi-Deva]",
+    "we will pay on {D} case 3 [hi-Deva]",
+    "we will pay on {D} case 4 [hi-Deva]",
+    "we will pay on {D} case 5 [hi-Deva]",
+    "we will pay on {D} case 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "we will pay on {D} case 1 [hi-Latn]",
+    "we will pay on {D} case 2 [hi-Latn]",
+    "we will pay on {D} case 3 [hi-Latn]",
+    "we will pay on {D} case 4 [hi-Latn]",
+    "we will pay on {D} case 5 [hi-Latn]",
+    "we will pay on {D} case 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "we will pay on {D} case 1 [mixed]",
+    "we will pay on {D} case 2 [mixed]",
+    "we will pay on {D} case 3 [mixed]",
+    "we will pay on {D} case 4 [mixed]",
+    "we will pay on {D} case 5 [mixed]",
+    "we will pay on {D} case 6 [mixed]"
+   ]
+  },
+  "WRONG_CONTACT": {
+   "en": [
+    "synthetic wrong_contact statement 1 [en]",
+    "synthetic wrong_contact statement 2 [en]",
+    "synthetic wrong_contact statement 3 [en]",
+    "synthetic wrong_contact statement 4 [en]",
+    "synthetic wrong_contact statement 5 [en]",
+    "synthetic wrong_contact statement 6 [en]"
+   ],
+   "hi-Deva": [
+    "synthetic wrong_contact statement 1 [hi-Deva]",
+    "synthetic wrong_contact statement 2 [hi-Deva]",
+    "synthetic wrong_contact statement 3 [hi-Deva]",
+    "synthetic wrong_contact statement 4 [hi-Deva]",
+    "synthetic wrong_contact statement 5 [hi-Deva]",
+    "synthetic wrong_contact statement 6 [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "synthetic wrong_contact statement 1 [hi-Latn]",
+    "synthetic wrong_contact statement 2 [hi-Latn]",
+    "synthetic wrong_contact statement 3 [hi-Latn]",
+    "synthetic wrong_contact statement 4 [hi-Latn]",
+    "synthetic wrong_contact statement 5 [hi-Latn]",
+    "synthetic wrong_contact statement 6 [hi-Latn]"
+   ],
+   "mixed": [
+    "synthetic wrong_contact statement 1 [mixed]",
+    "synthetic wrong_contact statement 2 [mixed]",
+    "synthetic wrong_contact statement 3 [mixed]",
+    "synthetic wrong_contact statement 4 [mixed]",
+    "synthetic wrong_contact statement 5 [mixed]",
+    "synthetic wrong_contact statement 6 [mixed]"
+   ]
+  }
+ },
+ "opener": {
+  "en": [
+   " [en]",
+   "Hello, [en]",
+   "Please note, [en]"
+  ],
+  "hi-Deva": [
+   " [hi-Deva]",
+   "Hello, [hi-Deva]",
+   "Please note, [hi-Deva]"
+  ],
+  "hi-Latn": [
+   " [hi-Latn]",
+   "Hello, [hi-Latn]",
+   "Please note, [hi-Latn]"
+  ],
+  "mixed": [
+   " [mixed]",
+   "Hello, [mixed]",
+   "Please note, [mixed]"
+  ]
+ },
+ "optout_ambiguous": {
+  "en": [
+   "do not reach me on this number any more [en]"
+  ],
+  "hi-Deva": [
+   "do not reach me on this number any more [hi-Deva]"
+  ],
+  "hi-Latn": [
+   "do not reach me on this number any more [hi-Latn]"
+  ],
+  "mixed": [
+   "do not reach me on this number any more [mixed]"
+  ]
+ },
+ "optout_channel": {
+  "email": {
+   "en": [
+    "stop emailing this address [en]",
+    "no more email to this mailbox [en]"
+   ],
+   "hi-Deva": [
+    "stop emailing this address [hi-Deva]",
+    "no more email to this mailbox [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "stop emailing this address [hi-Latn]",
+    "no more email to this mailbox [hi-Latn]"
+   ],
+   "mixed": [
+    "stop emailing this address [mixed]",
+    "no more email to this mailbox [mixed]"
+   ]
+  },
+  "sms": {
+   "en": [
+    "no more SMS on this line [en]",
+    "stop texting me here [en]"
+   ],
+   "hi-Deva": [
+    "no more SMS on this line [hi-Deva]",
+    "stop texting me here [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "no more SMS on this line [hi-Latn]",
+    "stop texting me here [hi-Latn]"
+   ],
+   "mixed": [
+    "no more SMS on this line [mixed]",
+    "stop texting me here [mixed]"
+   ]
+  },
+  "transcript": {
+   "en": [
+    "do not call me again [en]",
+    "no more calls to me [en]"
+   ],
+   "hi-Deva": [
+    "do not call me again [hi-Deva]",
+    "no more calls to me [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "do not call me again [hi-Latn]",
+    "no more calls to me [hi-Latn]"
+   ],
+   "mixed": [
+    "do not call me again [mixed]",
+    "no more calls to me [mixed]"
+   ]
+  },
+  "whatsapp": {
+   "en": [
+    "no more WhatsApp messages [en]",
+    "stop using WhatsApp for this [en]"
+   ],
+   "hi-Deva": [
+    "no more WhatsApp messages [hi-Deva]",
+    "stop using WhatsApp for this [hi-Deva]"
+   ],
+   "hi-Latn": [
+    "no more WhatsApp messages [hi-Latn]",
+    "stop using WhatsApp for this [hi-Latn]"
+   ],
+   "mixed": [
+    "no more WhatsApp messages [mixed]",
+    "stop using WhatsApp for this [mixed]"
+   ]
+  }
+ },
+ "optout_general": {
+  "en": [
+   "please stop contacting me about matter 1 [en]",
+   "please stop contacting me about matter 2 [en]",
+   "please stop contacting me about matter 3 [en]",
+   "please stop contacting me about matter 4 [en]",
+   "please stop contacting me about matter 5 [en]",
+   "please stop contacting me about matter 6 [en]",
+   "please stop contacting me about matter 7 [en]",
+   "please stop contacting me about matter 8 [en]",
+   "please stop contacting me about matter 9 [en]",
+   "please stop contacting me about matter 10 [en]",
+   "please stop contacting me about matter 11 [en]",
+   "please stop contacting me about matter 12 [en]"
+  ],
+  "hi-Deva": [
+   "please stop contacting me about matter 1 [hi-Deva]",
+   "please stop contacting me about matter 2 [hi-Deva]",
+   "please stop contacting me about matter 3 [hi-Deva]",
+   "please stop contacting me about matter 4 [hi-Deva]",
+   "please stop contacting me about matter 5 [hi-Deva]",
+   "please stop contacting me about matter 6 [hi-Deva]",
+   "please stop contacting me about matter 7 [hi-Deva]",
+   "please stop contacting me about matter 8 [hi-Deva]",
+   "please stop contacting me about matter 9 [hi-Deva]",
+   "please stop contacting me about matter 10 [hi-Deva]",
+   "please stop contacting me about matter 11 [hi-Deva]",
+   "please stop contacting me about matter 12 [hi-Deva]"
+  ],
+  "hi-Latn": [
+   "please stop contacting me about matter 1 [hi-Latn]",
+   "please stop contacting me about matter 2 [hi-Latn]",
+   "please stop contacting me about matter 3 [hi-Latn]",
+   "please stop contacting me about matter 4 [hi-Latn]",
+   "please stop contacting me about matter 5 [hi-Latn]",
+   "please stop contacting me about matter 6 [hi-Latn]",
+   "please stop contacting me about matter 7 [hi-Latn]",
+   "please stop contacting me about matter 8 [hi-Latn]",
+   "please stop contacting me about matter 9 [hi-Latn]",
+   "please stop contacting me about matter 10 [hi-Latn]",
+   "please stop contacting me about matter 11 [hi-Latn]",
+   "please stop contacting me about matter 12 [hi-Latn]"
+  ],
+  "mixed": [
+   "please stop contacting me about matter 1 [mixed]",
+   "please stop contacting me about matter 2 [mixed]",
+   "please stop contacting me about matter 3 [mixed]",
+   "please stop contacting me about matter 4 [mixed]",
+   "please stop contacting me about matter 5 [mixed]",
+   "please stop contacting me about matter 6 [mixed]",
+   "please stop contacting me about matter 7 [mixed]",
+   "please stop contacting me about matter 8 [mixed]",
+   "please stop contacting me about matter 9 [mixed]",
+   "please stop contacting me about matter 10 [mixed]",
+   "please stop contacting me about matter 11 [mixed]",
+   "please stop contacting me about matter 12 [mixed]"
+  ]
+ },
+ "pairs": [],
+ "reason": {
+  "en": [
+   "reason 1 [en]",
+   "reason 2 [en]",
+   "reason 3 [en]",
+   "reason 4 [en]",
+   "reason 5 [en]",
+   "reason 6 [en]",
+   "reason 7 [en]",
+   "reason 8 [en]"
+  ],
+  "hi-Deva": [
+   "reason 1 [hi-Deva]",
+   "reason 2 [hi-Deva]",
+   "reason 3 [hi-Deva]",
+   "reason 4 [hi-Deva]",
+   "reason 5 [hi-Deva]",
+   "reason 6 [hi-Deva]",
+   "reason 7 [hi-Deva]",
+   "reason 8 [hi-Deva]"
+  ],
+  "hi-Latn": [
+   "reason 1 [hi-Latn]",
+   "reason 2 [hi-Latn]",
+   "reason 3 [hi-Latn]",
+   "reason 4 [hi-Latn]",
+   "reason 5 [hi-Latn]",
+   "reason 6 [hi-Latn]",
+   "reason 7 [hi-Latn]",
+   "reason 8 [hi-Latn]"
+  ],
+  "mixed": [
+   "reason 1 [mixed]",
+   "reason 2 [mixed]",
+   "reason 3 [mixed]",
+   "reason 4 [mixed]",
+   "reason 5 [mixed]",
+   "reason 6 [mixed]",
+   "reason 7 [mixed]",
+   "reason 8 [mixed]"
+  ]
+ }
+}

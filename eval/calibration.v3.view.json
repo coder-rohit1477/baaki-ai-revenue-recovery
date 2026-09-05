@@ -1,0 +1,143 @@
+{
+ "calibration_version": "calibration.v3",
+ "inputs_hash": "a20b14b68e02155dfdb5285e30f0d547822a99d3e8549772fcabaeddd6afc11f",
+ "label_vocabulary": [
+  "AMBIGUOUS",
+  "CHANNEL_INBOUND",
+  "CHANNEL_OTHER",
+  "GENERAL",
+  "NONE",
+  "TEMPORARY"
+ ],
+ "annotation_contract": {
+  "GENERAL": "A bare or unqualified request to stop, cease or end contact or outreach, with no channel restriction in the text.",
+  "CHANNEL_INBOUND": "The text explicitly restricts the opt-out to the channel the message arrived on.",
+  "CHANNEL_OTHER": "The text explicitly restricts the opt-out to a channel other than the arrival channel.",
+  "TEMPORARY": "The request is explicitly limited until a stated date or for a stated period.",
+  "AMBIGUOUS": "The message plausibly indicates an opt-out, but its scope cannot be determined from the text and the arrival channel.",
+  "NONE": "The message is not an opt-out request."
+ },
+ "disambiguation_rule": "Do not infer channel scope from the arrival channel alone. A bare 'stop contacting me' is GENERAL unless the text itself limits the channel. The locked OPT_OUT_POSITIVE definition is unchanged: GENERAL and CHANNEL_INBOUND are both positives.",
+ "items": [
+  {
+   "id": "C-001013",
+   "arrival_channel": "whatsapp",
+   "language": "en",
+   "text": "My colleague in the next office agreed to receive these on my behalf."
+  },
+  {
+   "id": "C-001015",
+   "arrival_channel": "whatsapp",
+   "language": "hi-Latn",
+   "text": "Meri pehle wali rok ko radd samajhiye aur cadence phir se chalu kijiye."
+  },
+  {
+   "id": "C-001078",
+   "arrival_channel": "sms",
+   "language": "hi-Deva",
+   "text": "हमने भुगतान कर दिया था।"
+  },
+  {
+   "id": "C-001107",
+   "arrival_channel": "sms",
+   "language": "en",
+   "text": "I am not the wrong person, these accounts are mine."
+  },
+  {
+   "id": "C-001111",
+   "arrival_channel": "email",
+   "language": "mixed",
+   "text": "Maal delivered ho gaya tha, koi issue nahi."
+  },
+  {
+   "id": "C-001132",
+   "arrival_channel": "email",
+   "language": "en",
+   "text": "no more emails to this address, the matter is with our lawyers; the correspondence log should show this. Thank you."
+  },
+  {
+   "id": "C-001133",
+   "arrival_channel": "sms",
+   "language": "en",
+   "text": "Hi, stop texting this number, I am not the right contact for billing; please attach this to the file. That is final."
+  },
+  {
+   "id": "C-001136",
+   "arrival_channel": "whatsapp",
+   "language": "en",
+   "text": "To whom it concerns, stop sending me these alerts, this vendor relationship ended last quarter; the thread reference stays the same. Thank you."
+  },
+  {
+   "id": "C-001137",
+   "arrival_channel": "transcript",
+   "language": "en",
+   "text": "Listen, stop sending me additional reminders, the volume is unreasonable; please keep this on the record."
+  },
+  {
+   "id": "C-001143",
+   "arrival_channel": "sms",
+   "language": "en",
+   "text": "Look, please stop sending me these follow-up emails, we moved to a different supplier; our team is copied on this exchange. That is final."
+  },
+  {
+   "id": "C-001145",
+   "arrival_channel": "transcript",
+   "language": "en",
+   "text": "Listen, please stop sending me any more texts, this vendor relationship ended last quarter; kindly log this against the file. Thank you."
+  },
+  {
+   "id": "C-001156",
+   "arrival_channel": "email",
+   "language": "hi-Latn",
+   "text": "Suniye, is email pe mat bhejo, maine kabhi sign up nahi kiya; kripya ise file me darj kijiye."
+  },
+  {
+   "id": "C-001161",
+   "arrival_channel": "transcript",
+   "language": "hi-Latn",
+   "text": "Madam, ye follow up mat bhejo, maine kabhi sign up nahi kiya; hamare office ka samay wahi hai. Shukriya."
+  },
+  {
+   "id": "C-001170",
+   "arrival_channel": "email",
+   "language": "hi-Latn",
+   "text": "Sir, ye SMS mat bhejiye, account band ho chuka hai; hamari team is baat me shaamil hai. Bas itna hi."
+  },
+  {
+   "id": "C-001184",
+   "arrival_channel": "whatsapp",
+   "language": "mixed",
+   "text": "Look, Stop WhatsApp, yahan mat bhejo, account already band hai; portal pe same thread dikhega. Dhanyavaad."
+  },
+  {
+   "id": "C-001189",
+   "arrival_channel": "whatsapp",
+   "language": "mixed",
+   "text": "Look, Please stop, is number pe mat likhna, main billing contact nahi hoon; us record pe mera naam hai."
+  },
+  {
+   "id": "C-001190",
+   "arrival_channel": "transcript",
+   "language": "mixed",
+   "text": "Hello ji, Kindly stop, ab message mat bhejo, main billing contact nahi hoon; our team is copied, sab dekh rahe hain. Thanks yaar."
+  },
+  {
+   "id": "C-001203",
+   "arrival_channel": "whatsapp",
+   "language": "hi-Deva",
+   "text": "नमस्ते, ये सूचनाएँ मत भेजिए, अनुबंध जुलाई में समाप्त हो गया; कृपया इसे अभिलेख में रखिए."
+  },
+  {
+   "id": "C-001348",
+   "arrival_channel": "whatsapp",
+   "language": "en",
+   "text": "Right, do not reach me on this number any more, the matter is with our lawyers; the reference for this thread is on your portal. Thank you."
+  },
+  {
+   "id": "C-001350",
+   "arrival_channel": "whatsapp",
+   "language": "hi-Latn",
+   "text": "is number pe ab kuch mat bhejiye, ye maamla vakil ke paas hai; is thread ka reference aapke portal pe hai. Bas itna hi."
+  }
+ ]
+}

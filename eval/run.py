@@ -7,6 +7,7 @@ The oracle never sees the SUT; the SUT never sees an expectation; the run execut
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -19,8 +20,15 @@ from baaki.domain.enums import Arm
 from baaki.policy.ruleset import DEFAULT_RULESET_PATH, load_ruleset
 from eval.compare import build_expected, compare
 from eval.hashing import ROOT, config_hash, file_hash, freeze_hash, freeze_manifest, jsonl_hash
-from eval.loader import load_corpus, validate_corpus
-from eval.metrics import compute_metrics, defect_candidates, gates, strata
+from eval.loader import load_corpus, load_corpus_split, validate_corpus
+from eval.metrics import (
+    compute_metrics,
+    defect_candidates,
+    gates,
+    invariant_violations,
+    strata,
+    stratum_gates,
+)
 from eval.profiles import PROFILES_PATH, load_profiles, to_account_facts
 from eval.records import (
     ActualRecord,
@@ -34,14 +42,21 @@ from eval.records import (
 )
 from eval.report import (
     actuals_hash,
+    append_touch,
     banner_for,
     comparison_hash,
+    contamination_status,
+    load_calibration,
     load_db_coverage,
     load_defects,
     load_gap_metadata,
+    load_heldout_lock,
     now_utc,
+    read_artifact,
     run_id_for,
     schema_validation_metric,
+    touch_digest,
+    verify_lock,
     write_artifact,
 )
 from eval.schema import CorpusItem, EvidenceGrade, SchemaIntent
@@ -56,6 +71,39 @@ DEFAULT_GAP = EVAL_DIR / "gap_metadata.v1.json"
 DEFAULT_OUT = EVAL_DIR / "results"
 DEFAULT_DEFECTS = EVAL_DIR / "defects.v1.json"
 DEFAULT_DB_COVERAGE = DEFAULT_OUT / "pg16_coverage.json"
+DEFAULT_LOCK = EVAL_DIR / "heldout.v2.lock.json"
+DEFAULT_TOUCHES = DEFAULT_OUT / "heldout_touches.jsonl"
+DEFAULT_CALIBRATION = EVAL_DIR / "calibration.v3.json"
+HELDOUT_UNLOCK_ENV = "BAAKI_HELDOUT_UNLOCK"
+EXT_UNLOCK_ENV = "BAAKI_HELDOUT_EXT_UNLOCK"
+EVIDENCE_CLASS = {
+    "train": "BOOTSTRAP",
+    "dev": "REGRESSION_DETERMINISTIC",
+    "regression": "REGRESSION_DETERMINISTIC",
+    "heldout": "HELDOUT_DETERMINISTIC",
+}
+
+
+class ProtectedSplitLocked(RuntimeError):
+    """A protected split was requested without its explicit unlock (D-G4 §1.5)."""
+
+
+def load_heldout(corpus_dir: Path = EVAL_DIR / "corpus") -> list[CorpusItem]:
+    """Scored protected held-out split. Refuses to load without BAAKI_HELDOUT_UNLOCK=1."""
+    if os.environ.get(HELDOUT_UNLOCK_ENV) != "1":
+        raise ProtectedSplitLocked(
+            f"the protected held-out split requires {HELDOUT_UNLOCK_ENV}=1; every load is logged"
+        )
+    return load_corpus_split(corpus_dir / "heldout.v2.jsonl", corpus_dir / "heldout.answers.v2.jsonl")
+
+
+def load_heldout_extension(corpus_dir: Path = EVAL_DIR / "corpus") -> list[CorpusItem]:
+    """The 200-item OPT_OUT extension. Never scored during G4 (D-G4-11a); needs its own unlock."""
+    if os.environ.get(EXT_UNLOCK_ENV) != "1":
+        raise ProtectedSplitLocked(f"the protected extension requires {EXT_UNLOCK_ENV}=1 and is never scored during G4")
+    return load_corpus_split(corpus_dir / "heldout.ext.v1.jsonl", corpus_dir / "heldout.ext.answers.v1.jsonl")
+
+
 LIVE_REFUSED = "NOT_AVAILABLE_IN_2b-2: live provider evaluation is Phase 2b-3"
 
 
@@ -121,6 +169,9 @@ def run_evaluation(
     twice: bool = True,
     defects_path: Path = DEFAULT_DEFECTS,
     db_coverage_path: Path | None = DEFAULT_DB_COVERAGE,
+    lock_path: Path = DEFAULT_LOCK,
+    touch_path: Path = DEFAULT_TOUCHES,
+    calibration_path: Path = DEFAULT_CALIBRATION,
 ) -> Path:
     if sut_id == "live":
         raise SystemExit(LIVE_REFUSED)
@@ -128,8 +179,15 @@ def run_evaluation(
     for arm in arms:
         check_compatible(sut_id, arm)  # deterministic refusal before anything runs
     cfg = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    corpus_path = corpus_dir / f"{split}.v1.jsonl"
-    items = [it for it in load_corpus(corpus_path) if str(it.split) == split]
+    protected = split == "heldout"
+    # the protected split is versioned independently of the public corpora (G4 v2 migration)
+    suffix = "v2" if protected else "v1"
+    corpus_path = corpus_dir / f"{split}.{suffix}.jsonl"
+    answers_path = corpus_dir / f"{split}.answers.{suffix}.jsonl"
+    if protected:
+        items = [it for it in load_heldout(corpus_dir) if str(it.split) == split]
+    else:
+        items = [it for it in load_corpus(corpus_path) if str(it.split) == split]
     corpus_errors = validate_corpus(items)
     gaps = load_gap_metadata(gap_path)
     driver = _driver(sut_id)
@@ -216,6 +274,33 @@ def run_evaluation(
             comparisons=[c for c in comparisons if c.item_id == exp.item_id],
             known_defect=exp.item_id in defects,
         )
+    answers_digest = jsonl_hash(answers_path) if protected and answers_path.exists() else ""
+    lock = verify_lock(
+        load_heldout_lock(lock_path) if protected else None,
+        corpus_hash=run.corpus_hash,
+        answers_hash=answers_digest,
+    )
+    violations = invariant_violations(comparisons)
+    for gate in gate_rows:
+        if violations.get(gate.name):  # any-item override: one violating item fails the gate outright
+            gate_rows[gate_rows.index(gate)] = gate.model_copy(
+                update={"verdict": "FAIL", "reason": f"{len(violations[gate.name])} item(s) violate this invariant"}
+            )
+    primary_rows = [c for c in comparisons if str(c.arm) == str(primary)]
+    per_stratum = stratum_gates(primary_rows, items_by_id, cfg, split) if protected else []
+    if protected:
+        append_touch(
+            touch_path,
+            actor="eval.run",
+            reason="scored deterministic baseline",
+            kind="SCORED_RUN",
+            split=split,
+            corpus_hash=run.corpus_hash,
+            answers_hash=answers_digest,
+            freeze_hash=run.freeze_hash,
+            git_commit=run.git_commit,
+            run_id=run.run_id,
+        )
     artifact = RunArtifact(
         run=run,
         created_at_utc=now_utc(),
@@ -238,6 +323,12 @@ def run_evaluation(
         ),
         chain_sut_coverage=ChainCoverage(n_items=len(items), n_adversarial=len(adv_items)),
         database_coverage=db_cov,
+        evidence_class=EVIDENCE_CLASS[split],
+        contamination_status=contamination_status(touch_path),
+        heldout_lock=lock,
+        stratum_gates=per_stratum,
+        calibration=load_calibration(calibration_path) if protected else None,
+        touch_log_digest=touch_digest(touch_path) if protected else None,
         evaluation_schema_validation=eval_schema,
         not_available_offline={
             "live_sut": "Phase 2b-3",
@@ -250,16 +341,41 @@ def run_evaluation(
     return write_artifact(artifact, out_dir)
 
 
+def replay(
+    artifact_path: Path, *, out_dir: Path | None = None, touch_path: Path = DEFAULT_TOUCHES
+) -> tuple[bool, str, str]:
+    """Re-execute from a stored artefact's identity block and verify the comparison hash still matches.
+
+    This is what makes a held-out result checkable months later without trusting the original run.
+    """
+    stored = read_artifact(artifact_path)
+    arms = [Arm(str(a)) for a in stored.run.arms]
+    target = out_dir or artifact_path.parent / "replay"
+    fresh = read_artifact(
+        run_evaluation(
+            stored.run.sut_id,
+            arms,
+            stored.run.split,
+            out_dir=target,
+            twice=False,
+            db_coverage_path=None,
+            touch_path=touch_path,
+        )
+    )
+    return stored.comparison_hash == fresh.comparison_hash, stored.comparison_hash, fresh.comparison_hash
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="python -m eval.run", description="Baaki offline evaluation harness (Phase 2b-2 G2)"
     )
-    p.add_argument("--sut", required=True, choices=[RULES_SUT, CHAIN_SUT, "live"])
+    p.add_argument("--sut", choices=[RULES_SUT, CHAIN_SUT, "live"], default=RULES_SUT)
     p.add_argument("--arm", default="all", choices=["all", "control", "rules_only", "treatment"])
     p.add_argument("--split", default="train", choices=["train", "dev", "regression", "heldout"])
     p.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     p.add_argument("--out", type=Path, default=DEFAULT_OUT)
     p.add_argument("--once", action="store_true", help="skip the second determinism pass")
+    p.add_argument("--replay", type=Path, help="re-execute from a stored artefact and verify its comparison hash")
     p.add_argument(
         "--db-coverage",
         type=Path,
@@ -267,6 +383,10 @@ def main(argv: list[str] | None = None) -> int:
         help="PG16 coverage record written by tests/security (D-G3-7)",
     )
     a = p.parse_args(argv)
+    if a.replay is not None:
+        ok, stored, fresh = replay(a.replay)
+        sys.stdout.write(f"replay {'MATCH' if ok else 'MISMATCH'}: stored={stored} fresh={fresh}\n")
+        return 0 if ok else 4
     if a.sut == "live":
         sys.stderr.write(LIVE_REFUSED + "\n")
         return 2

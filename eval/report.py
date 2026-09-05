@@ -7,12 +7,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from eval.hashing import canonical_json, sha256_bytes
+from eval.hashing import canonical_json, freeze_hash, freeze_manifest, sha256_bytes
 from eval.records import (
     ActualRecord,
+    Calibration,
     ComparisonRecord,
     DatabaseCoverage,
     GapMeta,
+    HeldoutLock,
     MetricValue,
     RunArtifact,
     RunIdentity,
@@ -53,6 +55,71 @@ def load_db_coverage(path: Path | None, *, n_adversarial: int, per_category: dic
             }
         )
     )
+
+
+def load_heldout_lock(path: Path) -> HeldoutLock | None:
+    """The frozen identity of the protected split, or None when no freeze has happened yet."""
+    if not path.exists():
+        return None
+    return HeldoutLock.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def verify_lock(lock: HeldoutLock | None, *, corpus_hash: str, answers_hash: str) -> HeldoutLock | None:
+    """Recompute the freeze identity and record whether it still matches the lock (drift detection)."""
+    if lock is None:
+        return None
+    observed_freeze = freeze_hash(freeze_manifest())
+    matches = (
+        lock.corpus_hash == corpus_hash and lock.answers_hash == answers_hash and lock.freeze_hash == observed_freeze
+    )
+    return lock.model_copy(
+        update={
+            "observed_corpus_hash": corpus_hash,
+            "observed_answers_hash": answers_hash,
+            "observed_freeze_hash": observed_freeze,
+            "freeze_status": "MATCHES_LOCK" if matches else "DRIFTED",
+        }
+    )
+
+
+TOUCH_KINDS = ("CORPUS_INPUTS", "CORPUS_ANSWERS", "EXTENSION_READ", "SCORED_RUN", "RESULT_READ")
+
+
+def append_touch(path: Path, **fields: Any) -> None:
+    """Append one audit record. The log is evidence, not access control (D-G4-2)."""
+    if fields.get("kind") not in TOUCH_KINDS:
+        raise ValueError(f"unknown touch kind {fields.get('kind')!r}")
+    record = {"ts_utc": now_utc(), **fields}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(canonical_json(record) + "\n")
+
+
+def touch_digest(path: Path) -> str | None:
+    """SHA-256 of the audit log as it stood at run time, binding a result to its trail."""
+    if not path.exists():
+        return None
+    return sha256_bytes(path.read_bytes())
+
+
+def contamination_status(path: Path) -> str:
+    """CONTAMINATED once any protected read is logged against the tuning phase (D-G4-3/D-G4-12)."""
+    if not path.exists():
+        return "CLEAN"
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        if rec.get("kind") in ("CORPUS_ANSWERS", "EXTENSION_READ", "RESULT_READ") and rec.get("phase") == "2b-3":
+            return "CONTAMINATED"
+    return "CLEAN"
+
+
+def load_calibration(path: Path) -> Calibration | None:
+    if not path.exists():
+        return None
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return Calibration.model_validate_json(json.dumps(raw["result"]))
 
 
 def comparison_hash(comparisons: list[ComparisonRecord]) -> str:
