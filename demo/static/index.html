@@ -593,6 +593,7 @@ function renderResult(id, r){
     </div></div>
   </div>
   ${verdictNote(r, sc, a)}
+  ${clockNote(r)}
   ${sc && sc.key==='A' ? collectBlock(id, a) : ""}
   <details><summary>View technical details</summary><pre>${esc(JSON.stringify(r.telemetry,null,1))}</pre></details>`;
 }
@@ -622,6 +623,19 @@ function provenance(level){
   return level === "L1"
     ? '<span class="prov fb">Deterministic fallback</span>'
     : (level === "L0" ? '<span class="prov">Model-assisted</span>' : "");
+}
+
+/* P10 quiet hours (09:00-19:00 in the organisation's timezone, Sunday closed) is a real rule: it is what
+   stops Baaki contacting a debtor at midnight. Outside the window every outbound action is correctly
+   DEFERred, which would make the demo look broken rather than safe. So the demo decides as of the most
+   recent instant inside that window and says so here — the rule is enforced, not relaxed. */
+function clockNote(r){
+  if(!r.clock_snapped) return "";
+  const d = new Date(r.as_of);
+  const t = isNaN(d) ? esc(String(r.as_of)) : d.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});
+  return `<div class="note info"><b>Decided as of ${t}, inside the organisation's business hours.</b><br>
+    Quiet hours (09:00-19:00 local, Sunday closed) are enforced in full — an outbound action attempted now
+    would correctly be deferred. The demo moves the simulated moment, never the rule.</div>`;
 }
 
 function verdictNote(r, sc, a){

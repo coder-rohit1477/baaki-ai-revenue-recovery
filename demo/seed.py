@@ -19,6 +19,9 @@ from baaki.domain.ids import new_id
 
 H64 = "0" * 64
 ORG_NAME = "Meridian Supplies Pvt Ltd"
+# The organisation's timezone. P10 quiet hours are evaluated in this zone, so the demo has to agree with
+# the seeded row: `scenarios.decision_clock` reads it to pick the instant the pipeline decides against.
+ORG_TIMEZONE = "Asia/Kolkata"
 
 TEMPLATES = [
     TemplateCatalogueEntry(template_id="tpl.reminder.email.v1", channel=Channel.EMAIL,
@@ -73,8 +76,8 @@ def _templates(owner) -> None:
 
 def _org(owner) -> UUID:
     org = new_id()
-    owner.execute(text("INSERT INTO baaki.organization (org_id, name, timezone) VALUES (:o, :n, 'Asia/Kolkata')"),
-                  {"o": org, "n": ORG_NAME})
+    owner.execute(text("INSERT INTO baaki.organization (org_id, name, timezone) VALUES (:o, :n, :tz)"),
+                  {"o": org, "n": ORG_NAME, "tz": ORG_TIMEZONE})
     owner.commit()
     return org
 
