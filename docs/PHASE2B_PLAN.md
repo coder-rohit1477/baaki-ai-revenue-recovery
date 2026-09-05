@@ -1,7 +1,8 @@
 # Phase 2b Plan — Gated Model-Provider Boundary
 
-**Status:** 2b-1 IMPLEMENTED (uncommitted, awaiting commit review); corrections 1–11 applied; D-2b-2, D-2b-5, D-2b-7, D-2b-9 LOCKED.
-2b-2/2b-3/2b-4 not started.
+**Status:** 2b-1 COMMITTED (`6e0668f`); 2b-2 G1–G4 COMMITTED (`8f57e35`, `e2fcdf7`, `b3df471`, `672718b`); 2b-3 COMMITTED (`2ae6b32`,
+live smoke green: 4 passed, `gpt-4o-mini-2024-07-18`); **2b-4 IMPLEMENTED** (composition entrypoint, telemetry emitter, credential
+barrier). Corrections 1–11 applied; D-2b-1, D-2b-2, D-2b-3, D-2b-5, D-2b-7, D-2b-9 LOCKED. Held-out live evaluation and G5 not started.
 **Architecture basis:** `docs/ARCHITECTURE.md` **v3.3.2** §7 (P2b tag), §1.1, §5.1, §5.3, §12.1–12.2, §13.2–13.3. Where this plan and the
 architecture disagree, the plan is wrong.
 **Code basis:** commit `48887499b6fd69230ebd8cac2aed0651251314aa` (Phase 2), parent `b10ebe05526264377f35f402c7b32f4f50a1b8e8` (Phase 1).
@@ -348,17 +349,17 @@ no UI; no autonomous financial action; no tool calling; no multi-agent loops; no
 ## 18. Decisions
 | # | Decision | Status | Value / recommendation |
 |---|---|---|---|
-| D-2b-1 | SDK vs stdlib HTTPS | OPEN | official `openai` SDK, pinned, `max_retries=0`, injected `http_client` |
+| **D-2b-1** | SDK vs stdlib HTTPS | **LOCKED (2b-3)** | **stdlib** — `providers/llm/transport.py` over `urllib`, no vendor SDK, no new dependency. `uv lock` unchanged; the single-socket-module guard replaces `max_retries=0`. |
 | **D-2b-2** | Model id | **LOCKED** | `gpt-4o-mini-2024-07-18` (dated snapshot; adapter refuses undated ids; change = plan amendment + `*.v2` prompt id; availability confirmed by the 2b-3 live smoke, else STOP) |
-| D-2b-3 | Composition entrypoint | OPEN | `scripts/run_treatment_day.py` dev entrypoint in 2b-4 with a `scripts/` line in §5.3; production runner stays P4 |
+| **D-2b-3** | Composition entrypoint | **LOCKED (2b-4)** | `src/baaki/scripts/run_treatment_day.py` — dev entrypoint; the only importer of `agent/` in `src/`. Production runner stays P4. |
 | D-2b-4 | Telemetry store | OPEN | structured logs now; consider generalising P4 `provider_call` later |
 | **D-2b-5** | `raw_response` retention/redaction | **LOCKED** | §11.2: verbatim; non-JSON envelope (8 KiB cap); no redaction at write (immutable row); existing grants; never in logs/reports/live fixtures; lifetime of the experiment DB; real-data ingestion re-opens it as a P4 gate |
 | D-2b-6 | Fixture recording mode | OPEN | yes, gated like live tests; committed only after manual review |
 | D-2b-7 | Call 2 gating | LOCKED by §5.3 | absent call 1 ⇒ run; failed call 1 ⇒ skip; PASS ⇒ run with normalized interpretation |
 | D-2b-8 | Seed (A-L1) | OPEN | send when supported; fixtures unaffected |
 | **D-2b-9** | Ceilings | **LOCKED (as implemented in 2b-1)** | `CALL1_TIMEOUT_S = 8.0`, `CALL2_TIMEOUT_S = 6.0` (§7); `CALL1_MAX_OUTPUT_TOKENS = 400`, `CALL2_MAX_OUTPUT_TOKENS = 300`; `MESSAGE_CAP_BYTES = 2000` UTF-8 **bytes**, cut on a character boundary, then `TRUNCATION_MARKER = " [TRUNCATED BY BAAKI]"` appended and `message_truncated: true` recorded in the context; `NON_JSON_TEXT_CAP_BYTES = 8192`; `MAX_ATTEMPTS_PER_CALL = 2`; `GLOBAL_MAX_ATTEMPTS = 3`. Source of truth: `agent/context.py`, `agent/mapping.py`, `providers/llm/base.py`. Changing any value is a plan amendment. |
-| D-2b-11 | Live-provider controls not in 2b-1: consecutive-failure budget (circuit open) and daily cost ceiling | OPEN (2b-3) | recommended N = 5 consecutive provider faults ⇒ circuit open for the run, `fallback_reason = circuit_open`; daily cost ceiling per run from configuration; both apply only to the live adapter |
-| D-2b-10 | Provider retention opt-out mandatory | OPEN | yes; asserted at adapter construction |
+| D-2b-11 | Live-provider controls not in 2b-1: consecutive-failure budget (circuit open) and daily cost ceiling | **DEFERRED past 2b-4** (minimal provider scope, D-2b4-4) | recommended N = 5 consecutive provider faults ⇒ circuit open for the run, `fallback_reason = circuit_open`; daily cost ceiling per run from configuration; both apply only to the live adapter |
+| D-2b-10 | Provider retention opt-out mandatory | **DEFERRED past 2b-4** (D-2b4-4) | would change `_payload()` and require a fresh live smoke; not adopted |
 
 ## 19. Contradiction scan (against v3.3.2 and the committed tree)
 No blocking contradiction. Documentation addenda required in 2b-4: (1) §5.3 must list `agent/ → contracts/` and `agent/ → policy/schemas`
@@ -373,3 +374,35 @@ touched in the correction pass that locked them.
 
 ## 20. Recommendation
 Proceed with 2b-1 first (port, fixtures, runtime, budget, import rules; no dependency, no network). Approve D-2b-1 and D-2b-3 before 2b-3.
+
+
+---
+
+## 21. Phase 2b-4 as built (2026-09-05)
+
+| Decision | Value |
+|---|---|
+| D-2b4-1 | **C** — D-G3-1 amended to `G3 → G4 → 2b-3 → 2b-4 → held-out → G5`; recorded in `PHASE2B2_PLAN.md` |
+| D-2b4-2 | **A** — the emitter extends `agent/observability.py`; no `telemetry.py` module was created |
+| D-2b4-3 | security-critical only — credential barrier, `.env.example` agent-leg section, stale marker text. **No** `llm_provider`, `llm_model` or ceiling config fields: `LOCKED_MODEL_ID` and the D-2b-9 constants are already the single source of truth, and a config field could only create drift |
+| D-2b4-4 | minimal provider scope — the live adapter, its payload, prompts, schema and model id are **byte-identical to 2b-3**, so 2b-4 required no live call |
+| Credential mechanism | **(ii)** single-process scoped credential |
+
+### 21.1 Credential separation as built
+`take_model_credential()` reads `OPENAI_API_KEY` into a `SecretStr` and **removes it from the environment**;
+`assert_no_model_credential()` refuses to run the pipeline leg while it is still reachable. The key is taken before any
+engine exists, which is stronger than the plan's ordering: it is absent for the whole process except inside the provider
+object. This was required because `assemble_account_facts` reads `organization`, `policy_decision` and `recovery_action`,
+on which `baaki_agent` holds no SELECT (§6.3) — facts assembly must therefore run as `baaki_app`, before the agent leg.
+No grant was changed.
+
+### 21.2 Idempotency — corrected claim
+The plan's gate "re-run converges to the same decision" is **not met, and was not implementable without changing the
+pipeline** (out of scope). What holds and is tested:
+- the invoice-scoped `ACTION_PROPOSAL` is written **exactly once** per invoice-day (`uq_proposal_daily`); the entrypoint
+  absorbs the unique violation instead of failing;
+- a re-run **completes safely** and never raises.
+A re-run does open a **new decision cycle**: the absorbed proposal leaves the second run with no proposals, so the
+pipeline takes its unlinked path, which does not match the first run's linked decision (§5.8 keys linked uniqueness on
+`validation_id`). This is committed pipeline behaviour, recorded in
+`tests/scripts/test_run_treatment_day.py::test_a_re_run_opens_a_new_decision_cycle_by_design` so it cannot drift.

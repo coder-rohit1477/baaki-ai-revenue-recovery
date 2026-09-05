@@ -1,5 +1,5 @@
 # Baaki — AI Revenue Recovery
-## Architecture Specification — v3.3.2 (Reconciled · Source of Truth · Phase 2 decisions locked · package graph reconciled)
+## Architecture Specification — v3.4 (Reconciled · Source of Truth · Phase 2b model-provider boundary implemented)
 
 **Track 03 — AI Revenue Recovery (Razorpay AI Buildathon)**
 **Status:** Reconciled architecture. **This document governs implementation.** Any Phase plan
@@ -1871,6 +1871,26 @@ and tested. §6.17.
 ---
 
 # 17. Changes From v3.1 — Reconciliation Log
+
+## 17.0.0a v3.3.2 → v3.4 — Phase 2b model-provider boundary (implementation reconciliation)
+Documentation-only with respect to Phase 1/2: no table, enum, writer, grant, migration or policy constant changed.
+
+| # | Change | Section |
+|---|---|---|
+| 1 | **§5.3 addendum — `agent/`**: may import `domain/`, `contracts/`, `policy/schemas` (types only), `providers/llm/`, `db/writers/proposal`. Forbidden: `policy/{validate,kernel,arms,snapshot,optout,ruleset}`, `pipeline/`, `ledger/`, `actions/`, `reconcile/`, `experiment/`, `providers/razorpay/`, every writer except W07. Connects as `baaki_agent`. | §5.3 |
+| 2 | **§5.3 addendum — `providers/llm/`**: may import `domain/` and `contracts/` (RawJson only). Forbidden: `agent/`, `policy/`, `pipeline/`, `db/`, `ledger/`, `actions/`, `reconcile/`, `experiment/`, `providers/razorpay/`. `providers/llm/transport.py` is the **only** module in `src/` permitted to open a socket; no vendor SDK is imported anywhere (D-2b-1 LOCKED: stdlib). | §5.3 |
+| 3 | **§5.3 reverse rule**: no module under `domain/`, `contracts/`, `policy/`, `pipeline/`, `db/`, `ledger/`, `actions/`, `reconcile/`, `experiment/`, `sim/` imports `agent/` or `providers/llm/`. The **only** importer of `agent/` in `src/` is `scripts/run_treatment_day.py` (D-2b-3 LOCKED). Asserted by `tests/arch/test_phase2b4_boundary.py`. | §5.3 |
+| 4 | **§7 — provider port**: `AiProviderPort.complete_structured(ProviderRequest, CallBudget) -> ProviderResponse`; ten `ProviderStatus` values; ≤2 attempts per call and ≤3 per workflow (D-2b-9); `ProviderStatus → parse_status → validator reason` mapping unchanged from the plan's §3.3. | §7 |
+| 5 | **§7 — model id**: `gpt-4o-mini-2024-07-18`, a dated snapshot (D-2b-2 LOCKED). The adapter refuses any undated or non-locked id; substitution is never automatic. | §7 |
+| 6 | **§7 — `raw_response`** (D-2b-5 LOCKED): stored verbatim; non-JSON bodies wrapped in an 8 KiB envelope; body-less faults stored as a status-only object; never NULL; no redaction at write (the row is immutable, A1); never present in logs, telemetry, eval reports or live-recorded fixtures. | §7, §11.2 |
+| 7 | **§12.2 — credential separation**: `OPENAI_API_KEY` is legitimate in the agent leg only. `take_model_credential()` reads it into a `SecretStr` and removes it from the environment; `assert_no_model_credential()` refuses to run the pipeline leg while it is reachable. It is deliberately **not** in `FORBIDDEN_RUNTIME_KEYS`, which lists credentials never legitimate in any runtime process. | §12.2 |
+| 8 | **§13.2 unchanged** — "0 tables, 0 enums, 0 writers" still holds: provider telemetry is logged as structured JSON (`baaki.agent.provider_call`), never stored. D-2b-4 (telemetry table) remains OPEN. | §13.2 |
+| 9 | **Marker text corrected**: the `network` pytest marker no longer reads "Phase 4 provider integration only"; it is the credential-gated live provider smoke from Phase 2b-3 onward. | App. B |
+
+**Known limitation recorded, not fixed:** the composition entrypoint is safe to re-run but is **not decision-level
+idempotent** — see `docs/PHASE2B_PLAN.md` §21.2. Changing that would require changing the pipeline's per-day uniqueness
+(§5.8) and is out of Phase 2b scope.
+
 
 ## 17.0.0 v3.3.1 → v3.3.2 — Phase 2 implementation reconciliation (documentation only)
 
