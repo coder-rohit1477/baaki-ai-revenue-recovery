@@ -10,7 +10,7 @@ import os
 from collections.abc import Mapping
 from typing import Final
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 FORBIDDEN_RUNTIME_KEYS: Final[frozenset[str]] = frozenset(
@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     baaki_agent_dsn: str = Field(min_length=1)
     baaki_sim_dsn: str = Field(min_length=1)
     razorpay_key_id: str | None = None
+    # Phase 2b-3: a legitimate runtime credential, unlike the operator DSNs above. SecretStr so no
+    # repr, log line or traceback can print it. Absence is not an error: the workflow degrades to
+    # the deterministic rules path (ProviderStatus.NO_CREDENTIALS).
+    openai_api_key: SecretStr | None = None
 
     @field_validator("razorpay_key_id")
     @classmethod
@@ -63,4 +67,5 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         baaki_agent_dsn=env.get("BAAKI_AGENT_DSN", ""),
         baaki_sim_dsn=env.get("BAAKI_SIM_DSN", ""),
         razorpay_key_id=env.get("RAZORPAY_KEY_ID"),
+        openai_api_key=SecretStr(env["OPENAI_API_KEY"]) if env.get("OPENAI_API_KEY") else None,
     )

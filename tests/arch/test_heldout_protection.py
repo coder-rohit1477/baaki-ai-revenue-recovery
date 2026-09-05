@@ -129,10 +129,14 @@ def test_plaintext_surface_seed_is_never_committed():
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     assert len(lock["surface_seed_hash"]) == 64 and "surface_seed" not in lock
     tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+    guards = {Path(__file__).relative_to(ROOT).as_posix()}  # this file names the pattern it searches for
     for rel in tracked:
-        if rel.endswith((".json", ".toml", ".md", ".py", ".txt")):
-            body = (ROOT / rel).read_text(encoding="utf-8", errors="ignore")
-            assert 'surface_seed"' not in body.replace("surface_seed_hash", ""), rel
+        if rel in guards or not rel.endswith((".json", ".toml", ".md", ".py", ".txt")):
+            continue
+        body = (ROOT / rel).read_text(encoding="utf-8", errors="ignore")
+        # the risk is a committed key/value pair, not a mention of the word in a guard or a document
+        assert '"surface_seed":' not in body, rel
+        assert "SURFACE_SEED=" not in body, rel
 
 
 def test_the_surface_bank_is_not_committed_and_is_absent_from_the_freeze_set():

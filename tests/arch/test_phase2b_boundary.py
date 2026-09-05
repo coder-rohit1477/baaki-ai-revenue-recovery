@@ -58,7 +58,11 @@ def test_exactly_one_provider_port_and_no_sdk_importer():
     assert [p.relative_to(SRC).as_posix() for p in ports] == ["providers/llm/base.py"]
     for f in SRC.rglob("*.py"):
         assert not ({i.split(".")[0] for i in _imports(f)} & SDKS), f
-    assert not (SRC / "providers" / "llm" / "openai.py").exists()  # Phase 2b-3 has not started
+    # Phase 2b-3 landed the live adapter as openai_provider.py, so the module name cannot shadow a
+    # same-named package on sys.path. The guard that matters is asserted above: no SDK is imported
+    # anywhere in src/. D-2b3-1 chose stdlib, so the manifest below stays clean too.
+    assert not (SRC / "providers" / "llm" / "openai.py").exists()
+    assert (SRC / "providers" / "llm" / "openai_provider.py").exists()  # Phase 2b-3 implemented
     pyproject = (ROOT / "pyproject.toml").read_text()
     assert "openai" not in pyproject and "httpx" not in pyproject
 

@@ -80,12 +80,61 @@ def _closed(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+# Keywords strict structured-output schema validation rejects. Dropping them from the provider-facing schema loses
+# nothing: the real constraint lives on the pydantic model, which still validates every reply in
+# agent/mapping.py, so min_length, numeric bounds and UUID parsing are all still enforced there.
+_UNSUPPORTED_BY_STRICT: Final[frozenset[str]] = frozenset(
+    {
+        "default",
+        "format",
+        "minLength",
+        "maxLength",
+        "pattern",
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "multipleOf",
+        "minItems",
+        "maxItems",
+        "uniqueItems",
+    }
+)
+
+
+def _strict_ready(schema: dict[str, Any]) -> dict[str, Any]:
+    """Rewrite a pydantic schema into the subset strict structured-output validation accepts.
+
+    Strict mode has no notion of an omitted key: `required` must name every property of every object. An
+    optional field is therefore expressed as a nullable union the model must emit explicitly — pydantic
+    already emits `anyOf: [T, null]` for `T | None`, so this only has to add the key to `required`. A field
+    whose default is an empty collection stays non-nullable and becomes required; emitting `[]` is exactly
+    what its absence meant.
+
+    Discovered by the Phase 2b-3 live smoke: the provider rejected the previous schema with
+    "'required' ... to be an array including every key in properties".
+    """
+
+    def rewrite(node: Any) -> Any:
+        if isinstance(node, dict):
+            out = {k: rewrite(v) for k, v in node.items() if k not in _UNSUPPORTED_BY_STRICT}
+            if out.get("type") == "object" and "properties" in out:
+                out["required"] = list(out["properties"])
+            return out
+        if isinstance(node, list):
+            return [rewrite(v) for v in node]
+        return node
+
+    rewritten: dict[str, Any] = rewrite(schema)
+    return rewritten
+
+
 def provider_json_schema(kind: Literal["interpretation", "action_proposal"]) -> dict[str, Any]:
     """Provider-facing JSON schema generated from the EXISTING offline contracts — never a parallel schema."""
     model: type[InterpretationV1] | type[ActionProposalV1] = (
         InterpretationV1 if kind == "interpretation" else ActionProposalV1
     )
-    return _closed(model.model_json_schema())
+    return _closed(_strict_ready(model.model_json_schema()))
 
 
 def _canonical(obj: Any) -> str:

@@ -102,7 +102,14 @@ def test_escape_is_idempotent_and_total():
 @pytest.mark.parametrize("kind,model", [("interpretation", InterpretationV1), ("action_proposal", ActionProposalV1)])
 def test_provider_schema_is_the_existing_contract_closed_and_money_free(kind, model):
     schema = provider_json_schema(kind)
-    assert schema == model.model_json_schema() and schema["additionalProperties"] is False
+    raw = model.model_json_schema()
+    # A strict-schema projection of the SAME contract, not a parallel schema: identical properties and
+    # $defs, `required` completed, and the keywords strict mode rejects dropped. Those constraints stay
+    # enforced by the model itself in agent/mapping.py.
+    assert set(schema["properties"]) == set(raw["properties"])
+    assert set(schema.get("$defs", {})) == set(raw.get("$defs", {}))
+    assert schema["required"] == list(schema["properties"]) and set(raw["required"]) <= set(schema["required"])
+    assert schema["additionalProperties"] is False
     props = set(schema["properties"])
     assert not (props & set(MONEY_KEY_DENYLIST)) and not any(p.startswith("settle") or p.endswith("_date") for p in props)
     for d in schema.get("$defs", {}).values():
