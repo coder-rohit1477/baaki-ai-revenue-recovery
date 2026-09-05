@@ -36,13 +36,17 @@ Do **not** run `pytest` while the demo is running; both bootstrap the same clust
 | # | Action | What the judge should see |
 |---|---|---|
 | 1 | Open the page | **₹396,950 revenue at risk**, 9 overdue accounts, all labelled DEMO · SYNTHETIC DATA |
-| 2 | Scenario A → **Run AI analysis** | Two panes side by side: 🤖 **AI INTERPRETATION** (intent, promised amount, promised date, confidence) vs 🔒 **DETERMINISTIC POLICY DECISION** (validator outcome, verdict, action, authority tier) |
-| 3 | **Simulate ₹10,000 payment** | ₹25,000 → **₹15,000**, recovered ₹10,000, written by the in-database ledger writers |
-| 4 | **Simulate remaining ₹15,000** | Invoice → **PAID** |
-| 5 | **Run recovery again → prove it stops** | **AUTOMATIC STOP** — no eligible candidate, outbound action NOT SENT |
-| 6 | Scenario B → **Run AI analysis** | A hostile model reply carrying a forged 40% discount, settlement amount and mark-paid flag. Validator: **REJECT**. Financial state **UNCHANGED**. Action **NOT SENT** |
-| 7 | Scenario C → **Run AI analysis** | Opt-out recognised → **SUPPRESS**. No reminder created, no escalation |
-| 8 | Click any account row | Full audit trail: proposal → validation → decision → action → payment → ledger |
+| 2 | Scenario A → **Analyse & decide** | Two panes side by side: **AI understanding** (intent, promised amount, promised date, confidence, evidence quotes) vs **Deterministic decision** (validator outcome, action, authority tier, provenance badge) |
+| 3 | **Create payment link** *(Razorpay keys set)* | A real Test Mode Payment Link; pay **₹10,000** on it with a test card |
+| 3b | *(no Razorpay keys)* **Simulate ₹10,000** | Same outcome through the same writers |
+| 4 | **Check for payment** | ₹25,000 → **₹15,000**, recovered ₹10,000, written by the in-database ledger writers |
+| 5 | Pay/simulate the remaining ₹15,000, then **Check for payment** | Invoice → **PAID** |
+| 6 | **Analyse & decide** again → prove it stops | **AUTOMATIC STOP** — no eligible candidate, outbound action NOT SENT |
+| 7 | Scenario B → **Analyse & decide** | A hostile model reply carrying a forged 40% discount, settlement amount and mark-paid flag. Validator: **REJECT**. Financial state **UNCHANGED**. Action **NOT SENT** |
+| 8 | Scenario C → **Analyse & decide** | Opt-out recognised → **SUPPRESS**. No reminder created, no escalation |
+| 9 | Scenario D → **Analyse & decide** | Tier 2 → **Human approval required**. Recorded at `PENDING_APPROVAL`, no outbox row |
+| 10 | **Approvals** tab → note → **Approve** | Action → **QUEUED**, listed under *Decided* with the deciding role (`baaki_ops`) |
+| 11 | **Activity** tab | Causal audit trail: proposal → validation → decision → action → approval → payment → ledger |
 
 ## The line that wins it
 
@@ -52,9 +56,15 @@ Do **not** run `pytest` while the demo is running; both bootstrap the same clust
 
 ## Honest limits
 
-- **Payment confirmation is SIMULATED.** There is no live Razorpay integration in this build. The simulated
-  confirmation goes through the real reconciliation-sweep path (W03 → W04 → W05) with a synthetic payload,
-  so the money arithmetic, invoice state transition and ledger entries are produced by the real writers.
+- **Razorpay is real, but Test Mode only.** With `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` set, the demo
+  creates a real Test Mode Payment Link (`accept_partial`), and *Check for payment* polls `GET /payments`
+  and reconciles captured payments through the committed writers. No live keys, no real money; a key id
+  that is not `rzp_test_…` is refused by both the launcher and the client.
+- **Without Razorpay keys, payment confirmation is SIMULATED.** The simulated confirmation goes through the
+  same reconciliation-sweep path (W03 → W04 → W05) with a synthetic payload, so the money arithmetic,
+  invoice state transition and ledger entries are produced by the real writers either way.
+- **Confirmation is polled, not pushed.** No webhook receiver is wired to a public tunnel in this build.
+- **Approved actions are QUEUED, not delivered.** No dispatcher exists — nothing sends an SMS or email.
 - **All data is synthetic.** No real customer, invoice or payment exists.
 - No revenue has actually been recovered — the amounts are demo figures.
 - The model is used for **interpretation only**. Balances, payment confirmation, ledger arithmetic, policy

@@ -1,4 +1,4 @@
-"""The three judge scenarios, each driven through the real Phase 2b-4 composition entrypoint.
+"""The four judge scenarios, each driven through the real Phase 2b-4 composition entrypoint.
 
 No scenario bypasses the validator or the kernel. The only thing a scenario chooses is what the *model*
 says — live, or (for the hostile case) a scripted reply that stands in for a compromised provider. What
