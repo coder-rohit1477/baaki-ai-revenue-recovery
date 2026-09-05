@@ -7,7 +7,7 @@ operator credential is present in the runtime environment, startup is refused.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from typing import Final
 
 from pydantic import Field, SecretStr, field_validator
@@ -23,11 +23,23 @@ FORBIDDEN_RUNTIME_KEYS: Final[frozenset[str]] = frozenset(
     }
 )
 
+MODEL_CREDENTIAL_KEYS: Final[frozenset[str]] = frozenset({"OPENAI_API_KEY"})
+"""Credentials the agent leg may hold and the pipeline leg may not (PHASE2B_PLAN §12).
+
+Not in FORBIDDEN_RUNTIME_KEYS: those are never legitimate in any runtime process, whereas the model
+credential is legitimate in exactly one leg. The separation is enforced by taking the key out of the
+environment (`take_model_credential`) and asserting its absence (`assert_no_model_credential`).
+"""
+
 RAZORPAY_TEST_PREFIX: Final[str] = "rzp_test_"
 
 
 class RuntimeCredentialLeak(RuntimeError):
     """A non-runtime credential was found in the application's environment."""
+
+
+class ModelCredentialLeak(RuntimeError):
+    """A model-provider credential is reachable in a leg that must not be able to use one."""
 
 
 class Settings(BaseSettings):
@@ -57,6 +69,31 @@ def assert_no_privileged_credentials(environ: Mapping[str, str]) -> None:
         raise RuntimeCredentialLeak(
             "privileged credentials present in runtime environment: " + ", ".join(leaked)
         )
+
+
+def take_model_credential(environ: MutableMapping[str, str] | None = None) -> SecretStr | None:
+    """Read the model credential into a SecretStr and REMOVE it from the environment.
+
+    After this call the process can no longer hand the key to a child process, a library that reads the
+    environment, or the pipeline leg — the only remaining reference is the returned SecretStr, which the
+    caller gives to the provider and drops. Absence returns None: the workflow degrades to the
+    deterministic rules path (NO_CREDENTIALS), it does not fail.
+    """
+    env = os.environ if environ is None else environ
+    taken: SecretStr | None = None
+    for key in sorted(MODEL_CREDENTIAL_KEYS):
+        raw = env.pop(key, None)
+        if raw:
+            taken = SecretStr(raw)
+    return taken
+
+
+def assert_no_model_credential(environ: Mapping[str, str] | None = None) -> None:
+    """Refuse to run a pipeline leg while a model credential is still reachable from the environment."""
+    env = os.environ if environ is None else environ
+    leaked = sorted(k for k in MODEL_CREDENTIAL_KEYS if env.get(k))
+    if leaked:
+        raise ModelCredentialLeak("model credential reachable in the pipeline leg: " + ", ".join(leaked))
 
 
 def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
