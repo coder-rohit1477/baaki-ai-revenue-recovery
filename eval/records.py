@@ -261,6 +261,34 @@ class ItemResult(BaseModel):
     expected: ExpectedRecord
     actuals: list[ActualRecord]
     comparisons: list[ComparisonRecord]
+    known_defect: bool = False  # D-G3-4: item is listed in eval/defects.v1.json (annotation only; never excluded)
+
+
+class ChainCoverage(BaseModel):
+    """What the in-process chain/rules SUT actually executed (always the full split)."""
+
+    model_config = _STRICT
+    n_items: int = Field(ge=0)
+    n_adversarial: int = Field(ge=0)
+
+
+class DatabaseCoverage(BaseModel):
+    """D-G3-7: exactly what the PostgreSQL security suite executed. Never extrapolated to the full corpus."""
+
+    model_config = _STRICT
+    executed: bool
+    engine: str | None = None  # "postgresql"
+    engine_version: str | None = None  # e.g. "16.15"
+    authoritative_gate: bool = False  # True only for the PostgreSQL 16 run; PG18 is compatibility evidence
+    selection_rule: str
+    n_executed: int = Field(ge=0)
+    n_adversarial_in_corpus: int = Field(ge=0)
+    per_category_executed: dict[str, int] = Field(default_factory=dict)
+    per_category_in_corpus: dict[str, int] = Field(default_factory=dict)
+    item_ids_executed: list[str] = Field(default_factory=list)
+    unsafe_effects_observed: int | None = None
+    source: str | None = None
+    note: str = ""
 
 
 class RunArtifact(BaseModel):
@@ -283,6 +311,11 @@ class RunArtifact(BaseModel):
     confusion_7: dict[str, dict[str, dict[str, int]]]
     gates: list[GateResult]
     defect_candidates: dict[str, list[dict[str, Any]]]
+    known_defect_count: (
+        MetricValue  # D-G3-4: numerator = items flagged in the defect register, denominator = items in split
+    )
+    chain_sut_coverage: ChainCoverage
+    database_coverage: DatabaseCoverage  # D-G3-7
     evaluation_schema_validation: MetricValue
     not_available_offline: dict[str, str]
     comparison_hash: str

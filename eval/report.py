@@ -8,13 +8,51 @@ from pathlib import Path
 from typing import Any
 
 from eval.hashing import canonical_json, sha256_bytes
-from eval.records import ActualRecord, ComparisonRecord, GapMeta, MetricValue, RunArtifact, RunIdentity
+from eval.records import (
+    ActualRecord,
+    ComparisonRecord,
+    DatabaseCoverage,
+    GapMeta,
+    MetricValue,
+    RunArtifact,
+    RunIdentity,
+)
 
 
 def load_gap_metadata(path: Path) -> dict[str, GapMeta]:
     data = json.loads(path.read_bytes().decode("utf-8"))
     entries = [GapMeta.model_validate_json(json.dumps(e)) for e in data["entries"]]
     return {e.item_id: e for e in entries}
+
+
+def load_defects(path: Path) -> dict[str, dict[str, Any]]:
+    """D-G3-4: known authored-label defects keyed by item id (annotation only)."""
+    data = json.loads(path.read_bytes().decode("utf-8"))
+    return {e["item_id"]: e for e in data["entries"]}
+
+
+def load_db_coverage(path: Path | None, *, n_adversarial: int, per_category: dict[str, int]) -> DatabaseCoverage:
+    """D-G3-7: read the coverage record written by the PostgreSQL security suite; absent ⇒ not executed."""
+    if path is None or not path.exists():
+        return DatabaseCoverage(
+            executed=False,
+            selection_rule="NOT_EXECUTED",
+            n_executed=0,
+            n_adversarial_in_corpus=n_adversarial,
+            per_category_in_corpus=per_category,
+            note="no database-level run recorded for this corpus; chain-SUT coverage only",
+        )
+    raw = json.loads(path.read_bytes().decode("utf-8"))
+    return DatabaseCoverage.model_validate_json(
+        json.dumps(
+            {
+                **raw,
+                "n_adversarial_in_corpus": n_adversarial,
+                "per_category_in_corpus": per_category,
+                "source": str(path),
+            }
+        )
+    )
 
 
 def comparison_hash(comparisons: list[ComparisonRecord]) -> str:

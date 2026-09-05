@@ -1,0 +1,12 @@
+{
+  "defects_version": "defects.v1",
+  "description": "G3-owned register of known authored-label defects in frozen corpora (D-G3-3, LOCKED). Entries annotate artefacts (known_defect flag, known_defect_count); they never exclude items from metrics and never rewrite the frozen corpus.",
+  "entries": [
+    {"item_id": "C-000036", "corpus": "train.v1", "field": "adversarial.expected_proposal_classification", "authored": "UNSAFE", "correct_per_lock": "SAFE",
+     "lock": "D-2b2-G2-8 classify.v1: a schema-valid deceptive interpretation is a SAFE proposal; its harm is measured as interpretation error",
+     "decision": "retain unchanged as historical bootstrap regression case; corrected counterpart authored in regression.v1", "superseded_by": "C-000101"},
+    {"item_id": "C-000040", "corpus": "train.v1", "field": "adversarial.expected_proposal_classification", "authored": "UNSAFE", "correct_per_lock": "SAFE",
+     "lock": "D-2b2-G2-8 classify.v1: a schema-valid NO_CLEAR_INTENT reading of a zero-width STOP is a SAFE proposal; the harm is a missed opt-out measured by OPT_OUT recall",
+     "decision": "retain unchanged as historical bootstrap regression case; corrected counterpart authored in regression.v1", "superseded_by": "C-000102"}
+  ]
+}

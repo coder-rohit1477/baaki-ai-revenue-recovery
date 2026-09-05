@@ -22,11 +22,22 @@ from eval.hashing import ROOT, config_hash, file_hash, freeze_hash, freeze_manif
 from eval.loader import load_corpus, validate_corpus
 from eval.metrics import compute_metrics, defect_candidates, gates, strata
 from eval.profiles import PROFILES_PATH, load_profiles, to_account_facts
-from eval.records import ActualRecord, ComparisonRecord, ExpectedRecord, ItemResult, RunArtifact, RunIdentity
+from eval.records import (
+    ActualRecord,
+    ChainCoverage,
+    ComparisonRecord,
+    ExpectedRecord,
+    ItemResult,
+    MetricValue,
+    RunArtifact,
+    RunIdentity,
+)
 from eval.report import (
     actuals_hash,
     banner_for,
     comparison_hash,
+    load_db_coverage,
+    load_defects,
     load_gap_metadata,
     now_utc,
     run_id_for,
@@ -43,6 +54,8 @@ EVAL_DIR = ROOT / "eval"
 DEFAULT_CONFIG = EVAL_DIR / "config.v1.toml"
 DEFAULT_GAP = EVAL_DIR / "gap_metadata.v1.json"
 DEFAULT_OUT = EVAL_DIR / "results"
+DEFAULT_DEFECTS = EVAL_DIR / "defects.v1.json"
+DEFAULT_DB_COVERAGE = DEFAULT_OUT / "pg16_coverage.json"
 LIVE_REFUSED = "NOT_AVAILABLE_IN_2b-2: live provider evaluation is Phase 2b-3"
 
 
@@ -106,6 +119,8 @@ def run_evaluation(
     gap_path: Path = DEFAULT_GAP,
     out_dir: Path = DEFAULT_OUT,
     twice: bool = True,
+    defects_path: Path = DEFAULT_DEFECTS,
+    db_coverage_path: Path | None = DEFAULT_DB_COVERAGE,
 ) -> Path:
     if sut_id == "live":
         raise SystemExit(LIVE_REFUSED)
@@ -184,12 +199,22 @@ def run_evaluation(
     )
     run = RunIdentity(run_id=run_id_for(identity), **{**identity, "arms": arms, "evidence_grade": grade})
     status = "COMPLETE" if eval_schema.rate == 1.0 and not corpus_errors else "INVALID"
+    defects = load_defects(defects_path)
+    adv_items = [it for it in items if it.adversarial is not None]
+    per_cat: dict[str, int] = {}
+    for it in adv_items:
+        assert it.adversarial is not None
+        per_cat[str(it.adversarial.adversarial_category)] = per_cat.get(str(it.adversarial.adversarial_category), 0) + 1
+    db_cov = load_db_coverage(
+        db_coverage_path, n_adversarial=len(adv_items), per_category=dict(sorted(per_cat.items()))
+    )
     by_item: dict[str, ItemResult] = {}
     for exp in expected:
         by_item[exp.item_id] = ItemResult(
             expected=exp,
             actuals=[a for a in actuals if a.item_id == exp.item_id],
             comparisons=[c for c in comparisons if c.item_id == exp.item_id],
+            known_defect=exp.item_id in defects,
         )
     artifact = RunArtifact(
         run=run,
@@ -204,6 +229,15 @@ def run_evaluation(
         confusion_7={arm: core["confusion_7"] for arm, core in core_by_arm.items()},
         gates=gate_rows,
         defect_candidates=defect_candidates(comparisons, items_by_id),
+        known_defect_count=MetricValue(
+            numerator=sum(1 for it in items if it.id in defects),
+            denominator=len(items),
+            rate=None,
+            label="report-only",
+            note="D-G3-4 known authored-label defects (eval/defects.v1.json); annotated, never excluded",
+        ),
+        chain_sut_coverage=ChainCoverage(n_items=len(items), n_adversarial=len(adv_items)),
+        database_coverage=db_cov,
         evaluation_schema_validation=eval_schema,
         not_available_offline={
             "live_sut": "Phase 2b-3",
@@ -226,13 +260,21 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     p.add_argument("--out", type=Path, default=DEFAULT_OUT)
     p.add_argument("--once", action="store_true", help="skip the second determinism pass")
+    p.add_argument(
+        "--db-coverage",
+        type=Path,
+        default=DEFAULT_DB_COVERAGE,
+        help="PG16 coverage record written by tests/security (D-G3-7)",
+    )
     a = p.parse_args(argv)
     if a.sut == "live":
         sys.stderr.write(LIVE_REFUSED + "\n")
         return 2
     arms = None if a.arm == "all" else [Arm(a.arm.upper())]
     try:
-        path = run_evaluation(a.sut, arms, a.split, config_path=a.config, out_dir=a.out, twice=not a.once)
+        path = run_evaluation(
+            a.sut, arms, a.split, config_path=a.config, out_dir=a.out, twice=not a.once, db_coverage_path=a.db_coverage
+        )
     except SutArmIncompatible as e:
         sys.stderr.write(f"SUT_ARM_INCOMPATIBLE: {e}\n")
         return 3

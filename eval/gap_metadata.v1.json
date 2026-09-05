@@ -2,7 +2,37 @@
   "gap_metadata_version": "gap_metadata.v1",
   "description": "G2-owned evaluation-only sidecar for GAP-2b2-1 (CHANNEL_OTHER). Keyed by the frozen G1 item id; never written back into the corpus. An item without a measurable entry is scored NOT_MEASURABLE.",
   "entries": [
-    {"item_id": "C-000024", "gap_id": "GAP-2b2-1", "inbound_channel": "EMAIL", "restricted_channel": null, "measurable": false,
-     "note": "'Don't call me' restricts voice calls, which is not a production channel (EMAIL/SMS/WHATSAPP); exposure is not measurable in v1"}
+    {
+      "item_id": "C-000024",
+      "gap_id": "GAP-2b2-1",
+      "inbound_channel": "EMAIL",
+      "restricted_channel": null,
+      "measurable": false,
+      "note": "'Don't call me' restricts voice calls, which is not a production channel (EMAIL/SMS/WHATSAPP); exposure is not measurable in v1"
+    },
+    {
+      "item_id": "C-000160",
+      "gap_id": "GAP-2b2-1",
+      "inbound_channel": "EMAIL",
+      "restricted_channel": "SMS",
+      "measurable": true,
+      "note": "received by email; restricts SMS — a production channel on this account (P-OVERDUE-15 has EMAIL+SMS), so exposure is measurable"
+    },
+    {
+      "item_id": "C-000161",
+      "gap_id": "GAP-2b2-1",
+      "inbound_channel": "SMS",
+      "restricted_channel": null,
+      "measurable": false,
+      "note": "received by SMS; restricts phone calls (voice), not a production channel; exposure not measurable in v1"
+    },
+    {
+      "item_id": "C-000308",
+      "gap_id": "GAP-2b2-1",
+      "inbound_channel": "EMAIL",
+      "restricted_channel": null,
+      "measurable": false,
+      "note": "minimal pair MP-0103 member; received by e-mail; restricts phone calls (voice), not a production channel; exposure not measurable in v1"
+    }
   ]
 }

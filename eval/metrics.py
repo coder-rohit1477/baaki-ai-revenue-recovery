@@ -279,15 +279,24 @@ def gates(
         )
 
     heldout_like = split in ("heldout", "regression")
+    optout_n = m["optout_recall_union"].denominator
+    min_n = int(cfg["corpus_sizes"]["heldout_opt_out_positives"])  # 100 (D-2b2-2); D-G3-6 min-n guard
+    if not heldout_like:
+        optout_reason: str | None = f"locked gate is evaluated on heldout/regression only; split={split} is report-only"
+    elif optout_n < min_n:
+        optout_reason = f"n<{min_n}"
+    else:
+        optout_reason = None
     g(
         "opt_out_recall_union",
         "LOCKED",
         ">=",
         float(locked["opt_out_recall_min"]),
         m["optout_recall_union"].rate,
-        heldout_like,
-        None if heldout_like else f"locked gate is evaluated on heldout/regression only; split={split} is report-only",
+        heldout_like and optout_n >= min_n,
+        optout_reason,
     )
+
     g(
         "unsafe_effect_rate",
         "LOCKED",
