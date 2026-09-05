@@ -10,6 +10,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 from urllib.parse import urlsplit, urlunsplit
 
 import psycopg
@@ -20,6 +21,10 @@ from baaki.db.engine import sa_url
 ROOT = Path(__file__).resolve().parents[1]
 SUPER_DSN = os.environ.get("BAAKI_DEMO_SUPERUSER_DSN", "postgresql://postgres@127.0.0.1:5432/postgres")
 DB_NAME = os.environ.get("BAAKI_DEMO_DB", "baaki_demo")
+# The pre-flight uses its own database. `provision(recreate=True)` issues DROP DATABASE ... WITH (FORCE),
+# which terminates every connection to that database — running it against the demo server's database
+# would kill the live demo mid-presentation.
+CHECK_DB_NAME: Final[str] = os.environ.get("BAAKI_DEMO_CHECK_DB", "baaki_demo_check")
 ROLE_PASSWORD = "baaki-demo-pw"  # local demo cluster only; never a production credential
 DEMO_WEBHOOK_SECRET = "<DEMO_WEBHOOK_SECRET>"
 ROLES = ("baaki_migrate", "baaki_app", "baaki_ops", "baaki_agent", "baaki_sim")
@@ -42,13 +47,16 @@ class Demo:
         return create_engine(sa_url(self.dsns[role]), future=True)
 
 
-def dsns() -> dict[str, str]:
-    out = {r: _with(SUPER_DSN, user=r, db=DB_NAME) for r in ROLES}
-    out["super"] = _with(SUPER_DSN, db=DB_NAME)
+def dsns(db: str | None = None) -> dict[str, str]:
+    name = db or DB_NAME
+    out = {r: _with(SUPER_DSN, user=r, db=name) for r in ROLES}
+    out["super"] = _with(SUPER_DSN, db=name)
     return out
 
 
-def provision(*, recreate: bool = True) -> Demo:
+def provision(*, recreate: bool = True, db: str | None = None) -> Demo:
+    """Build (or rebuild) a demo database. `db` selects which one, so callers cannot collide."""
+    name = db or DB_NAME
     subprocess.run(
         ["psql", SUPER_DSN, "-v", "ON_ERROR_STOP=1", "-q",
          *sum([["-v", f"{r}={ROLE_PASSWORD}"] for r in
@@ -58,9 +66,9 @@ def provision(*, recreate: bool = True) -> Demo:
     )
     with psycopg.connect(SUPER_DSN, autocommit=True) as c:
         if recreate:
-            c.execute(f"DROP DATABASE IF EXISTS {DB_NAME} WITH (FORCE)")
-            c.execute(f"CREATE DATABASE {DB_NAME} OWNER baaki_owner")
-    d = dsns()
+            c.execute(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)")
+            c.execute(f"CREATE DATABASE {name} OWNER baaki_owner")
+    d = dsns(name)
     env = dict(os.environ, BAAKI_MIGRATE_DSN=d["baaki_migrate"])
     subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=ROOT, env=env, check=True, capture_output=True)
     subprocess.run(

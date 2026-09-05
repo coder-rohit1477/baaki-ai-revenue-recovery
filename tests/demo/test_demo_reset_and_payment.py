@@ -128,3 +128,31 @@ def test_scenario_b_distinguishes_action_creation_from_delivery():
     assert "Financial state: UNCHANGED" in page
     assert "deterministic policy tree" in page  # says who chose the action
     assert "queued only" in page
+
+
+# ── demo-check isolation: the pre-flight must never disturb a running demo ────────────────
+
+
+def test_the_preflight_targets_a_different_database_than_the_demo_server():
+    """`provision(recreate=True)` drops its target WITH (FORCE), closing every connection to it.
+
+    Regression for a P0 found in judge rehearsal: running `make demo-check` while `make demo` was up
+    killed the live server's pooled connections and it could not recover.
+    """
+    from demo.provision import CHECK_DB_NAME, DB_NAME
+
+    assert CHECK_DB_NAME != DB_NAME
+
+
+def test_the_preflight_asks_for_the_isolated_database_explicitly():
+    import pathlib
+
+    body = pathlib.Path("demo/check.py").read_text(encoding="utf-8")
+    assert "State(db=CHECK_DB_NAME)" in body
+
+
+def test_dsns_follow_the_requested_database():
+    from demo.provision import CHECK_DB_NAME, DB_NAME, dsns
+
+    assert all(f"/{DB_NAME}" in v for v in dsns().values())
+    assert all(f"/{CHECK_DB_NAME}" in v for v in dsns(CHECK_DB_NAME).values())

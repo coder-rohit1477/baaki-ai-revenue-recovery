@@ -19,7 +19,7 @@ from pydantic import SecretStr
 
 from baaki.config import assert_no_model_credential, take_model_credential
 from demo import scenarios, store
-from demo.provision import provision
+from demo.provision import DB_NAME, provision
 from demo.seed import seed
 
 STATIC = Path(__file__).parent / "static"
@@ -31,12 +31,15 @@ log = logging.getLogger("baaki.demo")
 class State:
     """Engines, the seeded scenario accounts, and the credential — held once for the process."""
 
-    def __init__(self) -> None:
+    def __init__(self, db: str | None = None) -> None:
+        """`db` names the database to build. The pre-flight passes its own so it can never disturb a
+        running demo: provisioning drops the target database with FORCE, closing every connection to it."""
         # Taken before anything else exists, exactly as the composition entrypoint does: from here on the
         # environment holds no model credential and only this SecretStr can reach the provider.
         self.credential: SecretStr | None = take_model_credential()
         assert_no_model_credential()
-        d = provision(recreate=True)
+        self.db = db or DB_NAME
+        d = provision(recreate=True, db=self.db)
         self.engine_app = d.engine("baaki_app")
         self.engine_agent = d.engine("baaki_agent")
         self.engine_owner = d.engine("baaki_migrate")
