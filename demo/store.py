@@ -255,6 +255,7 @@ def reconcile_provider_payments(
         "matched": len(items),
         "applied": applied,
         "already_reconciled": already,
+        "pending": [],
         "outstanding_paise": outstanding(engine_app, invoice_id),
         "invoice_state": invoice_state(engine_app, invoice_id),
         "source": "razorpay_test_mode",

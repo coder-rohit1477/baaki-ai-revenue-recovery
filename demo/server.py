@@ -187,7 +187,12 @@ def _check_payments(s: State, invoice_id: UUID) -> dict[str, Any]:
     raw = razorpay.fetch_payments()
     items = razorpay.captured_for_invoice(raw, str(invoice_id))
     if not items:
-        return {"matched": 0, "applied": [], "already_reconciled": [],
+        # Nothing applicable — but say WHY. A payment the customer has just made is `authorized` for a
+        # moment before Razorpay captures it, and the hosted link page already shows it as paid. Reporting
+        # that as "no payment" is what made a working reconciliation look broken.
+        pending = razorpay.pending_for_invoice(raw, str(invoice_id))
+        return {"matched": 0, "applied": [], "already_reconciled": [], "pending": pending,
+                "scanned": len(razorpay.items_with_exact_spans(raw)),
                 "outstanding_paise": store.outstanding(s.engine_app, invoice_id),
                 "invoice_state": store.invoice_state(s.engine_app, invoice_id),
                 "source": "razorpay_test_mode"}

@@ -30,6 +30,8 @@ API_ROOT: Final[str] = "https://api.razorpay.com/v1"
 TEST_KEY_PREFIX: Final[str] = "rzp_test_"
 USER_AGENT: Final[str] = "baaki-demo/razorpay-test-mode"
 TIMEOUT_S: Final[float] = 12.0
+# Razorpay caps a listing page at 100. One page keeps one raw response per sweep (see fetch_payments).
+MAX_LIST_COUNT: Final[int] = 100
 
 
 class RazorpayUnavailable(RuntimeError):
@@ -150,11 +152,16 @@ def fetch_payment_link(link_id: str) -> PaymentLink:
     )
 
 
-def fetch_payments(count: int = 25) -> str:
+def fetch_payments(count: int = MAX_LIST_COUNT) -> str:
     """GET /payments — returns the RAW response text, unparsed.
 
     The raw text is what gets recorded as the reconciliation sweep, and every payment payload handed to the
-    ledger must be a literal substring of it. Parsing and re-serialising here would break that guarantee.
+    ledger must be a literal substring of it. Parsing and re-serialising here would break that guarantee,
+    and so would paginating: a span must belong to the one response the sweep attests. So this stays a
+    single call, at the largest page the API allows.
+
+    `count` is the newest N payments across the whole test account, not per invoice. 25 was small enough
+    that a busy test key could push a demo payment out of the window; 100 is the documented maximum.
     """
     status, raw = _request("GET", f"/payments?count={count}")
     if status != 200:
@@ -204,7 +211,36 @@ def captured_for_invoice(raw: str, invoice_id: str) -> list[tuple[dict[str, Any]
     return hits
 
 
+def pending_for_invoice(raw: str, invoice_id: str) -> list[dict[str, Any]]:
+    """This invoice's payments that the provider has NOT made applicable yet. Display only.
+
+    A Razorpay payment is `created` → `authorized` → `captured`. The hosted link page shows the money as
+    paid the moment it is authorised, but the ledger may only ever see a *captured* payment — so between
+    those two states `captured_for_invoice` correctly returns nothing while the customer is looking at a
+    receipt. Reporting that as "no payment" is what made reconciliation look broken; reporting it as
+    "authorised, not captured yet" is the truth.
+
+    Nothing here reaches a writer. `captured_for_invoice` remains the only source of payments that are
+    applied to the ledger, and this function deliberately returns no spans — there is nothing to attest.
+    """
+    out: list[dict[str, Any]] = []
+    for obj, _span in items_with_exact_spans(raw):
+        notes = obj.get("notes") or {}
+        if not isinstance(notes, dict) or str(notes.get("invoice_id", "")) != str(invoice_id):
+            continue
+        if obj.get("status") == "captured" and obj.get("currency") == "INR":
+            continue  # this one is applicable; captured_for_invoice owns it
+        out.append({
+            "id": str(obj.get("id", "")),
+            "status": str(obj.get("status", "")),
+            "amount_paise": int(obj.get("amount", 0) or 0),
+            "currency": str(obj.get("currency", "")),
+        })
+    return out
+
+
 __all__ = [
     "PaymentLink", "RazorpayLiveKeyRefused", "RazorpayUnavailable", "available", "captured_for_invoice",
     "create_payment_link", "credentials", "fetch_payment_link", "fetch_payments", "items_with_exact_spans",
+    "pending_for_invoice",
 ]
