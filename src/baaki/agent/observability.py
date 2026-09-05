@@ -10,6 +10,8 @@ only, matching the convention the provider port already follows.
 
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any, Final
 from uuid import UUID
 
@@ -18,6 +20,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from baaki.providers.llm.base import ProviderResponse, ProviderStatus
 
 _STRICT = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+LOGGER_NAME: Final[str] = "baaki.agent.provider_call"
 
 REDACTED_FIELDS: Final[frozenset[str]] = frozenset(
     {"api_key", "authorization", "system_text", "user_text", "raw_text", "raw_json", "message", "text"}
@@ -50,6 +54,31 @@ class ProviderCallRecord(BaseModel):
     fallback_reason: str | None = None
     action_selected: str | None = None
     degradation_level: str | None = None
+
+    def completed(
+        self,
+        *,
+        parse_status: str | None = None,
+        validation_outcome: str | None = None,
+        rejection_reasons: list[str] | None = None,
+        fallback_reason: str | None = None,
+        action_selected: str | None = None,
+        degradation_level: str | None = None,
+    ) -> ProviderCallRecord:
+        """Return a copy carrying what the deterministic layers decided about this call's output.
+
+        The provider record is emitted as soon as the call returns, so a fault is observable even if the
+        process dies before the pipeline runs. This second, completed record is what carries the verdict.
+        """
+        update = {
+            "parse_status": parse_status,
+            "validation_outcome": validation_outcome,
+            "rejection_reasons": rejection_reasons,
+            "fallback_reason": fallback_reason,
+            "action_selected": action_selected,
+            "degradation_level": degradation_level,
+        }
+        return self.model_copy(update={k: v for k, v in update.items() if v is not None})
 
     def as_log_fields(self) -> dict[str, Any]:
         """A flat, secret-free mapping suitable for a structured log line."""
@@ -86,4 +115,17 @@ def record_for(
     )
 
 
-__all__ = ["REDACTED_FIELDS", "ProviderCallRecord", "record_for"]
+def emit(record: ProviderCallRecord, *, logger: logging.Logger | None = None) -> None:
+    """Write one structured, secret-free JSON line for this provider call (§11.1).
+
+    Logged, not stored: `agent_proposal` already holds the audit evidence, and a telemetry table would be
+    a migration (D-2b-4 stays open). `as_log_fields` asserts the record carries no redacted field, so the
+    only way to leak a prompt or a key here would be to add such a field to the model, which `extra=forbid`
+    and that assertion both prevent.
+    """
+    (logger or logging.getLogger(LOGGER_NAME)).info(
+        json.dumps(record.as_log_fields(), sort_keys=True, separators=(",", ":"))
+    )
+
+
+__all__ = ["LOGGER_NAME", "REDACTED_FIELDS", "ProviderCallRecord", "emit", "record_for"]
