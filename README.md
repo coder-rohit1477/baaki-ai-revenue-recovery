@@ -279,6 +279,9 @@ The recommended judge path, using the actual UI labels:
 
 **Reset demo** (top right) restores the baseline at any point.
 
+For the detailed judge/operator walkthrough — the 60-second presenter run-sheet, what each screen should
+show, and what to say when the live model is unavailable — see **[DEMO.md](DEMO.md)**.
+
 ---
 
 ## Repository structure
@@ -360,4 +363,4 @@ Stated plainly, because a judge will find these anyway:
 
 ## License
 
-None declared.
+MIT — see [LICENSE](LICENSE).
