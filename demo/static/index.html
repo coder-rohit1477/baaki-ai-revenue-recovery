@@ -135,6 +135,14 @@
   .quote{margin-top:8px;padding:7px 10px;background:var(--sunken);border-left:2px solid var(--line2);
          border-radius:0 5px 5px 0;font-size:12.5px;color:var(--ink2)}
 
+  .noai{padding:12px 13px}
+  .noai .t{font-size:13.5px;font-weight:650;color:var(--bad);margin-bottom:5px}
+  .noai .d{font-size:12.5px;color:var(--ink2);line-height:1.5}
+  .noai .f{margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+  .prov{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:4px;
+        border:1px solid var(--line2);background:var(--sunken);color:var(--ink2);white-space:nowrap}
+  .prov.fb{border-color:var(--warn-line);background:var(--warn-bg);color:var(--warn)}
+
   .msg{background:var(--sunken);border:1px solid var(--line);border-left:3px solid var(--navy);
        padding:11px 14px;border-radius:0 6px 6px 0;margin-bottom:14px}
   .msg .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);font-weight:600;margin-bottom:3px}
@@ -226,6 +234,16 @@
   .apg .c.ok .v{color:var(--ok)}
 
   /* trust panel */
+  .apact{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:11px;border-top:1px solid var(--line)}
+  .apact input{flex:1 1 220px;min-width:180px;font:inherit;font-size:13px;padding:8px 10px;
+    border:1px solid var(--line2);border-radius:6px;background:var(--surface);color:var(--ink)}
+  .apact input:focus{outline:none;border-color:var(--brand)}
+  .btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  .btn.ok:hover{background:#055c37}
+  .btn.no{background:var(--surface);border-color:var(--bad-line);color:var(--bad)}
+  .btn.no:hover{background:var(--bad-bg)}
+  .decided{border:1px solid var(--line);border-radius:8px;padding:11px 14px;margin-bottom:9px;background:var(--sunken)}
+
   .trust{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.trust{grid-template-columns:1fr}}
   .tcol{border:1px solid var(--line);border-radius:7px;padding:12px 14px}
@@ -246,6 +264,7 @@
   .ln.POLICY{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-line)}
   .ln.ACTION{background:var(--sunken);color:var(--ink2);border:1px solid var(--line2)}
   .ln.MONEY{background:#eff8ff;color:#175cd3;border:1px solid #b2ddff}
+  .ln.APPROVAL{background:var(--ai-bg);color:var(--ai);border:1px solid var(--ai-line)}
 
   .foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;line-height:1.6}
 </style>
@@ -474,13 +493,30 @@ function renderQueue(){
     </tr>`).join("")}</tbody></table>`;
 }
 
+/* Real stored event time, rendered for humans. The exact value is kept in the title attribute so a
+   technical judge can still read it; nothing here generates or adjusts a timestamp. */
+function when(iso){
+  if(!iso) return {label:"—", exact:""};
+  const d = new Date(String(iso).replace(" ","T"));
+  if(isNaN(d)) return {label:"—", exact:String(iso)};
+  const secs = Math.max(0, Math.round((Date.now() - d.getTime())/1000));
+  const exact = d.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"medium"});
+  let label;
+  if(secs < 45) label = "Just now";
+  else if(secs < 3600) label = Math.round(secs/60) + " min ago";
+  else if(new Date().toDateString() === d.toDateString())
+    label = "Today · " + d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+  else label = d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+  return {label, exact};
+}
+
 function renderFeed(){
   const f = S.activity || [];
   el("feed").innerHTML = f.length ? f.map(x => x.kind === "PAYMENT"
     ? `<div class="fi"><div class="ic p">₹</div><div><b>${INR(x.amount_paise)} payment confirmed</b><br>
         <span class="meta">${esc(x.name)} · ${esc(x.detail)}</span><br>
         <span class="meta">${esc(x.status)}</span></div></div>`
-    : `<div class="fi"><div class="ic">◆</div><div><b>${esc(x.detail)}</b><br>
+    : `<div class="fi"><div class="ic">◆</div><div><b>${esc(x.detail)}</b> ${provenance(x.level)}<br>
         <span class="meta">${esc(x.name)} · ${esc(x.status)}</span></div></div>`).join("")
     : '<div class="empty">No activity yet.<br>Open an account and run a recovery decision.</div>';
 }
@@ -536,19 +572,22 @@ function renderResult(id, r){
   const ev = (i.evidence||[]).map(e=>`<div class="quote"><b>${esc(e.field)}</b> ← “${esc(e.quote)}”</div>`).join("");
   return `
   <div class="duo">
-    <div class="pane ai"><div class="ph">AI understanding ${r.live?"· live model":"· scripted reply"}</div><div class="pb">
-      <div class="kv"><span class="k">Intent</span><span class="v">${esc(HUMAN[i.intent] || i.intent || "—")}</span></div>
-      <div class="kv"><span class="k">Promised amount</span><span class="v">${esc(i.promised_amount_raw ?? "—")}</span></div>
-      <div class="kv"><span class="k">Promised date</span><span class="v">${esc(i.promised_date_raw ?? "—")}</span></div>
-      <div class="kv"><span class="k">Confidence</span><span class="v">${i.confidence ?? "—"}</span></div>
-      ${ev || '<div class="quote">No supporting evidence returned.</div>'}
-    </div></div>
+    <div class="pane ai"><div class="ph">AI understanding ${r.live?"· live model":"· scripted reply"}</div>
+      ${i.intent ? `<div class="pb">
+        <div class="kv"><span class="k">Intent</span><span class="v">${esc(HUMAN[i.intent] || i.intent)}</span></div>
+        <div class="kv"><span class="k">Promised amount</span><span class="v">${esc(i.promised_amount_raw ?? "—")}</span></div>
+        <div class="kv"><span class="k">Promised date</span><span class="v">${esc(i.promised_date_raw ?? "—")}</span></div>
+        <div class="kv"><span class="k">Confidence</span><span class="v">${i.confidence ?? "—"}</span></div>
+        ${ev || '<div class="quote">No supporting evidence returned.</div>'}
+      </div>` : noInterpretation(r)}
+    </div>
     <div class="arrow">→</div>
     <div class="pane pol"><div class="ph">Deterministic decision</div><div class="pb">
       <div class="kv"><span class="k">Evidence valid</span><span class="v">${rejected?'<span class="tag bad">No</span>':'<span class="tag ok">Yes</span>'}</span></div>
       <div class="kv"><span class="k">Validator</span><span class="v">${esc(r.validation_outcome ?? "—")}</span></div>
       ${rejected?`<div class="kv"><span class="k">Reason</span><span class="v">${r.rejection_reasons.map(esc).join("<br>")}</span></div>`:""}
-      <div class="kv"><span class="k">Action</span><span class="v">${esc(r.action_type ?? "none")}</span></div>
+      <div class="kv"><span class="k">Action</span><span class="v">${esc(r.action_type ?? "none")}
+        ${provenance(r.degradation_level)}</span></div>
       <div class="kv"><span class="k">Authority tier</span><span class="v">${r.tier ?? "—"}${r.verdict==="REQUIRE_APPROVAL"?" · approval required":""}</span></div>
       <div class="kv"><span class="k">Contactable</span><span class="v">${a.contactable>0?a.contactable+" channel":'<span class="tag bad">none — opted out</span>'}</span></div>
     </div></div>
@@ -556,6 +595,33 @@ function renderResult(id, r){
   ${verdictNote(r, sc, a)}
   ${sc && sc.key==='A' ? collectBlock(id, a) : ""}
   <details><summary>View technical details</summary><pre>${esc(JSON.stringify(r.telemetry,null,1))}</pre></details>`;
+}
+
+function noInterpretation(r){
+  const rejected = r.validation_outcome === "REJECT" && r.parse_status === "SCHEMA_VIOLATION";
+  const reasons = (r.rejection_reasons||[]).map(esc).join(", ");
+  if(rejected) return `<div class="noai">
+    <div class="t">AI proposal rejected before execution</div>
+    <div class="d">The model attempted an out-of-policy financial proposal. Deterministic validation rejected
+      it before any financial or communication action could occur, so there is no structured interpretation
+      to display — nothing the model returned was accepted.</div>
+    <div class="f"><div class="kv"><span class="k">Parse result</span>
+        <span class="v">${esc(r.parse_status)}</span></div>
+      ${reasons?`<div class="kv"><span class="k">Rejected as</span><span class="v">${reasons}</span></div>`:""}</div>
+  </div>`;
+  return `<div class="noai">
+    <div class="t">No interpretation available</div>
+    <div class="d">The provider call did not return a usable structured reading of this message, so recovery
+      continued on the deterministic rules path. No model output is shown because none was accepted.</div>
+    <div class="f"><div class="kv"><span class="k">Parse result</span>
+      <span class="v">${esc(r.parse_status ?? "—")}</span></div></div>
+  </div>`;
+}
+
+function provenance(level){
+  return level === "L1"
+    ? '<span class="prov fb">Deterministic fallback</span>'
+    : (level === "L0" ? '<span class="prov">Model-assisted</span>' : "");
 }
 
 function verdictNote(r, sc, a){
@@ -731,28 +797,62 @@ function renderProvider(){
 
 /* ── approvals (read only, by design) ───────────────────── */
 function renderApprovals(){
-  const ap = S.approvals||[];
+  const ap = S.approvals||[], done = S.decided||[];
   el("n-ap").textContent = ap.length;
   el("n-ap").className = "n" + (ap.length ? " hot" : "");
-  el("approvals").innerHTML = (ap.length ? ap.map(x=>`
-    <div class="ap">
+  const pending = ap.length ? ap.map(x=>`
+    <div class="ap" id="ap-${x.action_id}">
       <div class="top"><h4>${esc(x.name)}</h4>
         <span class="meta">${esc(x.invoice_number)}</span>
         <div class="grow"></div>
-        <span class="tag ai">Tier ${x.tier} · pending operator approval</span></div>
+        <span class="tag ai">Tier ${x.tier} · approval required</span></div>
       <div class="apg">
         <div class="c"><div class="k">Outstanding</div><div class="v">${INR(x.outstanding_paise)}</div></div>
-        <div class="c"><div class="k">Requested action</div><div class="v">${esc(x.action_type)}</div></div>
+        <div class="c"><div class="k">Proposed action</div><div class="v">${esc(x.action_type)}</div></div>
         <div class="c ok"><div class="k">Financial state</div><div class="v">UNCHANGED</div></div>
         <div class="c ok"><div class="k">External delivery</div><div class="v">NOT SENT</div></div>
       </div>
-      <div class="meta">Verdict ${esc(x.verdict)} · recorded ${esc(String(x.created_at).slice(0,19).replace("T"," "))}</div>
-    </div>`).join("") : '<div class="empty">No actions are pending approval.<br>Run the opt-out scenario to produce one.</div>')
-    + `<div class="note info" style="margin-top:4px">
-        <b>AI cannot approve its own Tier-2 actions.</b> The policy kernel classified this action as tier 2, so it
-        was recorded and stopped — no message was sent and no balance moved. Operator approval is a separate
-        authority boundary and is not implemented in this demo: no role in the system holds UPDATE on a recovery
-        action, which is the same rule that prevents the model from self-approving.</div>`;
+      <div class="meta">Why: the policy kernel classified this as a tier-${x.tier} action, which it will not
+        run autonomously. Verdict ${esc(x.verdict)} · recorded ${esc(String(x.created_at).slice(0,19).replace("T"," "))}</div>
+      <div class="apact">
+        <input id="note-${x.action_id}" placeholder="Operator note (required to reject)" maxlength="200">
+        <button class="btn ok" id="ok-${x.action_id}" onclick="decide('${x.action_id}',true)">Approve</button>
+        <button class="btn no" id="no-${x.action_id}" onclick="decide('${x.action_id}',false)">Reject</button>
+      </div>
+      <div id="res-${x.action_id}"></div>
+    </div>`).join("") : '<div class="empty">Nothing is awaiting approval.<br>Run the approval scenario from the recovery queue.</div>';
+
+  const history = done.length ? `<h3 style="font-size:13px;margin:18px 0 10px">Decided</h3>` + done.map(x=>{
+    const okd = x.state === "QUEUED";
+    return `<div class="decided">
+      <b>${esc(x.name)}</b> <span class="meta">· ${esc(x.invoice_number)} · ${esc(x.action_type)}</span>
+      <span class="tag ${okd?'ok':'bad'}" style="margin-left:8px">${okd?'APPROVED · queued':'APPROVAL REJECTED'}</span>
+      <div class="meta" style="margin-top:4px">by ${esc(x.approved_by_role)} ·
+        ${esc(String(x.approved_at).slice(0,19).replace("T"," "))} ·
+        ${okd?`${x.queued} outbox item queued`:"no external delivery"}${x.approved_by_note?` · “${esc(x.approved_by_note)}”`:""}</div>
+    </div>`;}).join("") : "";
+
+  el("approvals").innerHTML = pending + history + `<div class="note info" style="margin-top:14px">
+      <b>AI cannot approve its own Tier-2 actions.</b> Approval runs as a separate database role
+      (<span class="meta">baaki_ops</span>) through a narrow writer that only ever moves an action out of
+      <b>pending approval</b> — it cannot create an action, change what it does, or touch a balance. The role
+      the recovery pipeline runs as holds no permission to call it.</div>`;
+}
+
+async function decide(actionId, approve){
+  const note = (el("note-"+actionId)||{}).value || "";
+  if(!approve && !note.trim()){
+    el("res-"+actionId).innerHTML = '<div class="note bad">A rejection needs a reason.</div>'; return;
+  }
+  const ok = el("ok-"+actionId), no = el("no-"+actionId);
+  ok.disabled = no.disabled = true;
+  (approve?ok:no).innerHTML = '<span class="spin"></span> ' + (approve?"Approving…":"Rejecting…");
+  const r = await api("/api/approvals/" + (approve?"approve":"reject"), {action_id:actionId, note});
+  if(r.error){
+    el("res-"+actionId).innerHTML = `<div class="note bad"><b>${esc(r.error === "NoteRequired" ? "A rejection needs a reason." : "Could not record the decision.")}</b>${r.error==="NoteRequired"?"":"<br>"+esc(r.detail||"")}</div>`;
+    ok.disabled = no.disabled = false; ok.textContent = "Approve"; no.textContent = "Reject"; return;
+  }
+  await load(); go("approvals");
 }
 
 /* ── audit timeline ─────────────────────────────────────── */
@@ -762,7 +862,7 @@ function renderTimeline(){
     <div class="tle"><span class="ln ${esc(x.lane)}">${esc(x.lane)}</span>
       <div class="grow"><b>${esc(x.title)}</b><br>
         <span class="meta">${esc(x.name)}${x.detail?" · "+esc(HUMAN[x.detail]||x.detail):""}</span></div>
-      <span class="meta">${esc(String(x.at).slice(11,19))}</span></div>`).join("")
+      <span class="meta" title="${esc(when(x.at).exact)}">${esc(when(x.at).label)}</span></div>`).join("")
     : '<div class="empty">No events recorded yet.<br>Run a scenario from the recovery queue.</div>';
 }
 

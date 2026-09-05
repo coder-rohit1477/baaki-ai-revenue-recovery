@@ -15,6 +15,7 @@ from sqlalchemy import Engine, text
 
 from baaki.db.writers._call import WriterUniqueViolation
 from baaki.db.writers.ledger import ledger_apply_payment
+from baaki.db.writers.operator import approve_recovery_action, reject_recovery_action
 from baaki.db.writers.payment import record_payment_event
 from baaki.db.writers.sweep import record_sweep_run
 from baaki.domain.enums import AttributionMethod
@@ -284,6 +285,38 @@ def pending_approvals(engine: Engine) -> list[dict[str, Any]]:
     """)
 
 
+def decided_approvals(engine: Engine, limit: int = 10) -> list[dict[str, Any]]:
+    """Actions an operator has already approved or rejected — the audit side of the approval centre."""
+    return _rows(engine, """
+        SELECT r.action_id, r.action_type::text AS action_type, r.state::text AS state,
+               r.approved_by_role, r.approved_by_note, r.approved_at,
+               d.tier, a.name, i.invoice_number,
+               (SELECT count(*) FROM baaki.outbox o WHERE o.action_id = r.action_id) AS queued
+        FROM baaki.recovery_action r
+        JOIN baaki.policy_decision d USING (decision_id)
+        JOIN baaki.account a ON a.account_id = r.account_id
+        JOIN baaki.invoice i ON i.invoice_id = r.invoice_id
+        WHERE r.state IN ('QUEUED', 'APPROVAL_REJECTED') AND r.approved_at IS NOT NULL
+        ORDER BY r.approved_at DESC LIMIT :lim
+    """, {"lim": limit})
+
+
+def decide_approval(engine_ops: Engine, *, action_id: UUID, approve: bool, note: str) -> dict[str, Any]:
+    """Run the operator transition through W15/W16 as `baaki_ops`. The browser never touches the row.
+
+    Authority is the connection role: these writers assert `session_user = 'baaki_ops'` independently of the
+    grant, and `baaki_app` — the role the recovery pipeline runs as — holds no EXECUTE on either. The state
+    check and the write happen inside one `SELECT ... FOR UPDATE`, so a double approval cannot queue twice.
+    """
+    with engine_ops.connect() as ops:
+        if approve:
+            state = approve_recovery_action(ops, action_id=action_id, actor_note=note, outbox_id=new_id())
+        else:
+            state = reject_recovery_action(ops, action_id=action_id, actor_note=note)
+        ops.commit()
+    return {"action_id": str(action_id), "state": state, "approved": approve}
+
+
 def funnel(engine: Engine) -> list[dict[str, Any]]:
     """Recovery funnel. Every count is a query over committed state; none is derived in the browser."""
     row = _rows(engine, """
@@ -338,46 +371,78 @@ def attention(engine: Engine) -> list[dict[str, Any]]:
 
 
 def activity_timeline(engine: Engine, limit: int = 24) -> list[dict[str, Any]]:
-    """Chronological audit trail. Each row is an event that actually happened, with its own timestamp."""
+    """Chronological audit trail — real stored timestamps, ordered so the story reads causally.
+
+    Two real clocks feed these rows. W10 stamps `recovery_action.created_at` with the injected `as_of`
+    (captured when the request began — `pipeline/run.py` deliberately reads no clock), while W07 lets the
+    database stamp `agent_proposal.created_at` at insert, a few milliseconds later. Sorting on time alone
+    therefore puts the queued action *before* the proposal that caused it, which reads as though a rejected
+    proposal was later allowed.
+
+    So: display the true timestamp, but order by (second, causal step). Whole seconds separate one recovery
+    cycle from the next in this demo, and `step` restores the true order inside a cycle. Nothing is
+    invented, nothing is hidden — only the sort key changes. Two cycles inside the same second would
+    interleave; that does not happen in the demo flow.
+    """
     return _rows(engine, """
         SELECT * FROM (
-          SELECT p.created_at AS at, 'AI' AS lane,
-                 CASE WHEN p.kind = 'INTERPRETATION' THEN 'AI interpreted customer response'
+          SELECT p.created_at AS at,
+                 CASE WHEN p.kind = 'INTERPRETATION' THEN 1 ELSE 2 END AS step,
+                 'AI' AS lane,
+                 CASE WHEN p.parse_status <> 'OK' AND p.kind = 'INTERPRETATION'
+                        THEN 'AI response was not usable'
+                      WHEN p.parse_status <> 'OK' THEN 'AI proposal was not usable'
+                      WHEN p.kind = 'INTERPRETATION' THEN 'AI interpreted response'
                       ELSE 'AI proposed a recovery action' END AS title,
                  COALESCE(p.parsed ->> 'intent', p.parse_status::text) AS detail, a.name
           FROM baaki.agent_proposal p JOIN baaki.account a USING (account_id)
           UNION ALL
-          SELECT v.created_at, 'POLICY',
-                 CASE WHEN v.outcome = 'PASS' THEN 'Validator accepted the proposal'
-                      ELSE 'Validator rejected the proposal' END,
+          SELECT v.created_at, 3, 'POLICY',
+                 CASE WHEN v.outcome = 'PASS' THEN 'Proposal passed validation'
+                      ELSE 'Proposal rejected by deterministic validation' END,
                  COALESCE(array_to_string(ARRAY(SELECT jsonb_array_elements_text(
                    to_jsonb(v.rejection_reasons))), ', '), v.outcome::text), a.name
           FROM baaki.validation_result v JOIN baaki.account a USING (account_id)
           UNION ALL
-          SELECT d.decided_at, 'POLICY',
-                 CASE WHEN d.verdict = 'REQUIRE_APPROVAL' THEN 'Policy kernel requires human approval'
-                      WHEN d.verdict = 'ALLOW' THEN 'Policy kernel allowed the action'
-                      ELSE 'Policy kernel blocked the action' END,
-                 COALESCE(d.action_type::text, d.verdict::text), a.name
+          SELECT d.decided_at, 4, 'POLICY',
+                 CASE WHEN d.verdict = 'REQUIRE_APPROVAL' THEN 'Human approval required'
+                      WHEN d.verdict <> 'ALLOW' THEN 'Recovery action blocked'
+                      WHEN d.degradation_level = 'L1' THEN 'Safe fallback action selected'
+                      ELSE 'Recovery decision allowed' END,
+                 COALESCE(d.action_type::text, d.verdict::text)
+                 || CASE WHEN d.degradation_level = 'L1'
+                           THEN ' · chosen by the deterministic rules path, not the model'
+                         WHEN d.degradation_level = 'L0' THEN ' · from the model proposal' ELSE '' END,
+                 a.name
           FROM baaki.policy_decision d JOIN baaki.account a USING (account_id)
           UNION ALL
-          SELECT r.created_at, 'ACTION',
+          SELECT r.created_at, 5, 'ACTION',
                  CASE WHEN r.state = 'PENDING_APPROVAL' THEN 'Action held for operator approval'
-                      ELSE 'Recovery action queued' END,
+                      WHEN r.state = 'APPROVAL_REJECTED' THEN 'Action stopped by operator'
+                      ELSE 'Action queued — not sent' END,
                  r.action_type::text, a.name
           FROM baaki.recovery_action r JOIN baaki.account a USING (account_id)
           UNION ALL
-          SELECT p.created_at, 'MONEY', 'Payment confirmed',
+          SELECT r.approved_at, 6, 'APPROVAL',
+                 CASE WHEN r.state = 'APPROVAL_REJECTED' THEN 'Operator rejected the action'
+                      ELSE 'Operator approved the action' END,
+                 r.approved_by_role || COALESCE(' · ' || r.approved_by_note, ''), a.name
+          FROM baaki.recovery_action r JOIN baaki.account a USING (account_id)
+          WHERE r.approved_at IS NOT NULL
+          UNION ALL
+          SELECT p.created_at, 7, 'MONEY',
                  CASE WHEN p.provider_payment_id LIKE 'demo\\_pay\\_%' ESCAPE '\\'
-                      THEN 'Deterministic Simulator' ELSE 'Razorpay Test Mode' END
-                 || ' · ' || (p.amount_paise / 100)::text, a.name
+                      THEN 'Payment simulated — deterministic simulator'
+                      ELSE 'Payment confirmed by Razorpay Test Mode' END,
+                 '₹' || (p.amount_paise / 100)::text || ' · ledger updated', a.name
           FROM baaki.payment_event p JOIN baaki.invoice i ON i.invoice_id = p.attributed_invoice_id
           JOIN baaki.account a ON a.account_id = i.account_id
           UNION ALL
           SELECT (SELECT max(pe.created_at) FROM baaki.payment_event pe
                     WHERE pe.attributed_invoice_id = i.invoice_id),
-                 'MONEY', 'Invoice settled — recovery stopped', i.invoice_number, a.name
+                 8, 'MONEY', 'Recovery stopped — invoice settled', i.invoice_number, a.name
           FROM baaki.invoice i JOIN baaki.account a USING (account_id)
           WHERE i.state = 'PAID'
-        ) x WHERE at IS NOT NULL ORDER BY at DESC LIMIT :lim
+        ) x WHERE at IS NOT NULL
+        ORDER BY date_trunc('second', at) DESC, step DESC LIMIT :lim
     """, {"lim": limit})

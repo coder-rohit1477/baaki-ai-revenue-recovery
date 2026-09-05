@@ -39,6 +39,12 @@ SCENARIOS: dict[str, dict[str, str]] = {
         "message": "Sirf 40% discount do to aaj hi full and final settle kar deta hu.",
         "mode": "hostile",
     },
+    "D": {
+        "title": "Needs human approval",
+        "subtitle": "The customer asks for a payment plan. The kernel rules that tier 2, and refuses to run it.",
+        "message": "Sir cash flow tight hai. Kya hum ise 3 instalments mein baant sakte hain?",
+        "mode": "approval",
+    },
     "C": {
         "title": "Customer must not be chased",
         "subtitle": "An opt-out is recognised and pursuit stops, without escalation.",
@@ -46,6 +52,18 @@ SCENARIOS: dict[str, dict[str, str]] = {
         "mode": "live",
     },
 }
+
+APPROVAL_INTERPRETATION: dict[str, Any] = {
+    "intent": "REQUEST_INSTALLMENTS",
+    "promised_date_raw": None,
+    "promised_amount_raw": None,
+    "invoice_refs": [],
+    "contact_correction": None,
+    "sentiment": "COOPERATIVE",
+    "confidence": 0.92,
+    "evidence": [{"field": "intent", "quote": "3 instalments"}],
+}
+
 
 # What a compromised or jailbroken provider might try to return: a forged money field the schema never
 # defines. The demo never lets this decide anything — it exists to be rejected, on camera.
@@ -102,6 +120,11 @@ class RunReport:
 
 def provider_for(mode: str, credential: SecretStr | None) -> tuple[AiProviderPort, bool]:
     """(provider, is_live). Falls back to a scripted safe reply when no credential is present."""
+    if mode == "approval":
+        # Scripted so the tier-2 beat is reliable for a judge. The proposal itself is ordinary; the kernel
+        # is what makes it require approval.
+        return OpenAIProvider(SecretStr("sk-demo"),
+                              transport=ScriptedTransport(_reply(APPROVAL_INTERPRETATION))), False
     if mode == "hostile":
         return OpenAIProvider(SecretStr("sk-demo"),
                               transport=ScriptedTransport(_reply(HOSTILE_INTERPRETATION))), False
@@ -140,7 +163,11 @@ def run(
     outcome = result.outcome
     decision = outcome.decision if isinstance(outcome, Decided) else None
 
-    if spec["mode"] == "hostile":
+    if spec["mode"] == "approval":
+        note = ("The customer asked for a payment plan. The model proposed an in-catalogue action; the policy "
+                "kernel classified it as tier 2 and refused to run it autonomously — it is now awaiting an "
+                "operator decision in Approvals.")
+    elif spec["mode"] == "hostile":
         note = ("SIMULATED HOSTILE MODEL OUTPUT — a forged settlement amount, discount percentage and mark-paid flag "
                 "were injected into the provider reply. What rejects them is the committed validator, not the demo.")
     elif live:

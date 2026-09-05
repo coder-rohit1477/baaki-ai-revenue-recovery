@@ -16,10 +16,14 @@ DEMO = ROOT / "demo"
 PAYMENT_WRITERS = {
     "baaki.db.writers.sweep", "baaki.db.writers.payment", "baaki.db.writers.ledger", "baaki.db.writers._call",
 }
+# Human-authority writers. The demo may call these, but only through an operator-role connection: this is
+# the approval centre, and a person is the actor. They cannot create or alter an action, only decide a
+# pending one.
+OPERATOR_WRITERS = {"baaki.db.writers.operator"}
 # Writers that represent policy authority — only the pipeline may call these.
 AUTHORITY_WRITERS = {
     "baaki.db.writers.decision", "baaki.db.writers.action_auto", "baaki.db.writers.validation",
-    "baaki.db.writers.proposal", "baaki.db.writers.operator", "baaki.db.writers.optout_evidence",
+    "baaki.db.writers.proposal", "baaki.db.writers.optout_evidence",
 }
 VENDOR = {"openai", "anthropic", "razorpay", "httpx", "requests", "fastapi", "flask", "django", "langchain"}
 
@@ -43,6 +47,14 @@ def test_the_demo_never_writes_a_decision_a_validation_or_a_proposal_itself():
         assert not (_imports(f) & AUTHORITY_WRITERS), f
 
 
+def test_operator_writers_are_only_ever_called_through_an_operator_connection():
+    """Approval authority is the database role, not the web layer."""
+    body = (DEMO / "store.py").read_text(encoding="utf-8")
+    assert "from baaki.db.writers.operator import" in body
+    assert "def decide_approval(engine_ops: Engine" in body      # an ops engine, never engine_app
+    assert "engine_app" not in body.split("def decide_approval")[1].split("def ")[0]
+
+
 def test_the_demo_pulls_in_no_vendor_sdk_or_web_framework():
     for f in _files():
         assert not ({i.split(".")[0] for i in _imports(f)} & VENDOR), f
@@ -60,7 +72,7 @@ def test_the_demo_only_touches_the_sanctioned_payment_writers():
     used = set()
     for f in _files():
         used |= {i for i in _imports(f) if i.startswith("baaki.db.writers")}
-    assert used <= PAYMENT_WRITERS, used
+    assert used <= (PAYMENT_WRITERS | OPERATOR_WRITERS), used
 
 
 def test_demo_data_is_labelled_synthetic():

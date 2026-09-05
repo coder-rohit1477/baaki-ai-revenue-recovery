@@ -45,6 +45,7 @@ class State:
         self.engine_agent = d.engine("baaki_agent")
         self.engine_owner = d.engine("baaki_migrate")
         self.engine_super = d.engine("super")  # reset needs TRUNCATE; no other path uses this engine
+        self.engine_ops = d.engine("baaki_ops")   # operator authority: W15/W16 only
         self.accounts = self._seed()
         self.links: dict[str, dict[str, Any]] = {}  # invoice_id -> payment link, this run only
 
@@ -112,6 +113,7 @@ class Handler(BaseHTTPRequestHandler):
                 "funnel": store.funnel(s.engine_app),
                 "attention": store.attention(s.engine_app),
                 "approvals": store.pending_approvals(s.engine_app),
+                "decided": store.decided_approvals(s.engine_app),
                 "timeline": store.activity_timeline(s.engine_app),
             })
         elif route.path == "/api/timeline":
@@ -142,6 +144,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(_create_link(s, acct))
             elif route.path == "/api/razorpay/check":
                 self._json(_check_payments(s, UUID(body["invoice_id"])))
+            elif route.path in ("/api/approvals/approve", "/api/approvals/reject"):
+                approve = route.path.endswith("approve")
+                action_id = UUID(str(body["action_id"]))
+                note = str(body.get("note") or "").strip()
+                if not approve and not note:
+                    self._json({"error": "NoteRequired", "detail": "A rejection needs a reason."}, 400)
+                else:
+                    self._json(store.decide_approval(
+                        s.engine_ops, action_id=action_id, approve=approve,
+                        note=note or "approved by operator"))
             elif route.path == "/api/reset":
                 s.reseed()
                 self._json({"ok": True})

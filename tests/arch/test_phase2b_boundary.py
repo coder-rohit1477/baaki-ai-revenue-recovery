@@ -74,6 +74,8 @@ def test_prompt_templates_are_exactly_the_approved_files():
 
 
 def test_no_migration_added_by_phase_2b():
+    """Phase 2b added no migration. 0007 is Phase 4 (human approval), explicitly outside this phase."""
     versions = sorted(p.name for p in (ROOT / "migrations" / "versions").glob("*.py"))
-    assert versions == ["0001_schema.py", "0002_write_functions.py", "0003_grants.py", "0004_opt_out_metadata.py",
-                        "0005_opt_out_writers.py", "0006_seed_templates.py"]
+    assert versions[:6] == ["0001_schema.py", "0002_write_functions.py", "0003_grants.py",
+                            "0004_opt_out_metadata.py", "0005_opt_out_writers.py", "0006_seed_templates.py"]
+    assert versions[6:] == ["0007_approval_writers.py"]

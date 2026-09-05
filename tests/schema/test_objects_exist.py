@@ -10,7 +10,7 @@ def test_object_counts(su):
     assert q("select count(*) from pg_type t join pg_namespace n on n.oid=t.typnamespace where n.nspname='baaki' and t.typtype='e'") == 20
     assert q("select count(*) from pg_views where schemaname='baaki'") == 1
     assert q("select count(*) from pg_trigger tg join pg_class c on c.oid=tg.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='baaki' and not tg.tgisinternal") == 5
-    assert q("select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='baaki_write'") == 12
+    assert q("select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='baaki_write'") == 14  # +W15/W16 approval writers
     assert q("select count(*) from pg_extension where extname='pgcrypto'") == 1
     assert q("select count(*) from pg_roles where rolname in ('baaki_owner','baaki_migrate','baaki_app','baaki_ops','baaki_agent','baaki_sim')") == 6
 
@@ -33,7 +33,8 @@ def test_writer_names(su):
     assert names == {"issue_invoice", "record_webhook_event", "record_sweep_run", "record_payment_event",
                      "ledger_apply_payment", "ledger_post_unapplied", "record_agent_proposal",
                      "record_validation_result", "record_policy_decision", "create_recovery_action",
-                     "opt_out_contact_from_evidence", "opt_out_by_operator"}
+                     "opt_out_contact_from_evidence", "opt_out_by_operator",
+                     "approve_recovery_action", "reject_recovery_action"}
 
 
 def test_every_object_owned_by_owner(su):

@@ -55,7 +55,6 @@ BACKGROUND = [  # (name, invoice number, paise, days overdue)
     ("Nandi Logistics", "INV-1023", 12_500_00, 9),
     ("Kaveri Foods", "INV-1029", 47_800_00, 21),
     ("Orbit Print House", "INV-1031", 9_650_00, 4),
-    ("Deccan Hardware", "INV-1035", 31_500_00, 47),
     ("Blue River Textiles", "INV-1038", 1_26_000_00, 15),
 ]
 
@@ -120,6 +119,7 @@ def seed(engine_owner: Engine, engine_app: Engine, *, today: date) -> dict[str, 
             ("A", "Sharma Traders", "INV-1042", 25_000_00, 18),
             ("B", "Vertex Components", "INV-1044", 42_000_00, 26),
             ("C", "Lotus Interiors", "INV-1046", 18_500_00, 11),
+            ("D", "Deccan Hardware", "INV-1035", 31_500_00, 47),
         ]
         for key, name, number, amount, overdue in scenarios:
             acct, contact = _account(owner, org, name, number.replace("INV", "ACC"))

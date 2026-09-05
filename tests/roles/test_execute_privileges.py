@@ -1,4 +1,4 @@
-"""B. §6.6 EXECUTE matrix for W01–W10; PUBLIC revoked; ops holds none in P1."""
+"""B. §6.6 EXECUTE matrix for W01–W16; PUBLIC revoked; ops holds only the human-only writers."""
 from sqlalchemy import text
 
 MATRIX = {
@@ -7,6 +7,9 @@ MATRIX = {
     "record_agent_proposal": {"baaki_agent"}, "record_validation_result": {"baaki_app"},
     "record_policy_decision": {"baaki_app"}, "create_recovery_action": {"baaki_app"},
     "opt_out_contact_from_evidence": {"baaki_app"}, "opt_out_by_operator": {"baaki_ops"},
+    # W15/W16 — human approval of a tier-2 action. Operator authority only: baaki_app is deliberately
+    # absent so the automated recovery path cannot approve the action it produced.
+    "approve_recovery_action": {"baaki_ops"}, "reject_recovery_action": {"baaki_ops"},
 }
 ROLES = ["baaki_app", "baaki_ops", "baaki_agent", "baaki_sim"]
 

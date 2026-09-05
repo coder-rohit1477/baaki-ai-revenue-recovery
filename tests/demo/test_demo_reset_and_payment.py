@@ -12,7 +12,7 @@ from demo.seed import BACKGROUND, seed
 from demo.store import RESETTABLE_TABLES, dashboard, provider_payment_id, truncate_demo_data
 from sqlalchemy import text
 
-EXPECTED_ACCOUNTS = 9  # three scenario accounts + six dashboard background accounts
+EXPECTED_ACCOUNTS = 9  # four scenario accounts + five dashboard background accounts
 EXPECTED_AT_RISK_PAISE = 39_695_000  # Rs 396,950 — the documented baseline the judge first sees
 
 
@@ -68,10 +68,10 @@ def test_seed_produces_the_documented_baseline(db):
     eng_owner, eng_app = db.engine("baaki_migrate"), db.engine("baaki_app")
     try:
         made = seed(eng_owner, eng_app, today=datetime.date.today())
-        assert set(made) == {"A", "B", "C"}
+        assert set(made) == {"A", "B", "C", "D"}   # D is the human-approval scenario
         c = _counts(db)
         assert c["organization"] == 1
-        assert c["account"] == EXPECTED_ACCOUNTS == 3 + len(BACKGROUND)
+        assert c["account"] == EXPECTED_ACCOUNTS == 4 + len(BACKGROUND)
         assert dashboard(eng_app)["at_risk_paise"] == EXPECTED_AT_RISK_PAISE
     finally:
         eng_owner.dispose(); eng_app.dispose()

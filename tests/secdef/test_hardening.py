@@ -20,7 +20,7 @@ def _writers(su):
 
 def test_h1_h3_h4_h8_h9_h14(su):
     rows = _writers(su)
-    assert len(rows) == 12
+    assert len(rows) == 14  # W01-W12 plus W15/W16; every one still asserted below
     for r in rows:
         assert r["proowner"] == "baaki_owner", r["proname"]                       # H1
         assert r["prosecdef"] is True, r["proname"]                                # H3
