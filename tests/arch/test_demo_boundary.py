@@ -9,8 +9,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DEMO = ROOT / "demo"
-# Writers the demo may call directly: the simulated provider confirmation and its ledger application.
-PAYMENT_WRITERS = {"baaki.db.writers.sweep", "baaki.db.writers.payment", "baaki.db.writers.ledger"}
+# Writers the demo may call directly: provider confirmation (simulated or real) and its ledger application.
+# `_call` is not a writer — it exposes the writer exception types (pipeline/run.py imports it the same way)
+# and grants no authority. The AUTHORITY_WRITERS assertion below is unchanged and is what actually fences
+# the demo out of decisions, validations and proposals.
+PAYMENT_WRITERS = {
+    "baaki.db.writers.sweep", "baaki.db.writers.payment", "baaki.db.writers.ledger", "baaki.db.writers._call",
+}
 # Writers that represent policy authority — only the pipeline may call these.
 AUTHORITY_WRITERS = {
     "baaki.db.writers.decision", "baaki.db.writers.action_auto", "baaki.db.writers.validation",
@@ -62,4 +67,12 @@ def test_demo_data_is_labelled_synthetic():
     assert "SYNTHETIC" in (DEMO / "seed.py").read_text(encoding="utf-8")
     page = (DEMO / "static" / "index.html").read_text(encoding="utf-8")
     assert "DEMO · SYNTHETIC DATA" in page and "SIMULATED" in page
-    assert "no live Razorpay integration" in page  # never claim an integration we do not have
+    # Razorpay Test Mode is now genuinely wired, so the old "no live Razorpay integration" wording became
+    # false and was removed. The guard is not dropped — it is tightened onto the claims that still matter:
+    # name the sandbox, deny real money, and never assert a production integration.
+    flat = " ".join(page.split())  # copy wraps across lines; assert on the rendered sentence, not the source
+    assert "Razorpay Test Mode" in flat
+    assert "no real money moves" in flat
+    assert "no production Razorpay integration is claimed" in flat
+    for false_claim in ("real money recovered", "live payments", "production payment"):
+        assert false_claim not in flat.lower(), false_claim

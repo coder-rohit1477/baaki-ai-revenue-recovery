@@ -5,18 +5,31 @@
 ## Start
 
 ```bash
-make db-up                                  # PostgreSQL 16 (skip if already running)
-export OPENAI_API_KEY=sk-...                # shell only — never a file, never committed
-make demo-check                             # optional: one live call, proves credentials work
-make demo                                   # → http://127.0.0.1:8899
+make db-up                       # PostgreSQL 16 (skip if already running)
+cp .env.example .env.local       # once — then paste your keys into .env.local
+./start-demo.sh                  # every time  →  http://127.0.0.1:8899
 ```
 
-The server takes `OPENAI_API_KEY` **out of the environment** at startup (`take_model_credential`) and
-asserts it is unreachable (`assert_no_model_credential`) before the `baaki_app` leg is created. Without a
-key the demo still runs: every scenario degrades to the deterministic rules path instead of crashing.
+`.env.local` is gitignored (`.gitignore: .env.*`) and never committed. `./start-demo.sh` loads it **in the
+shell** and exports the values into the demo process — no application code reads a file, so `Settings`
+keeps `env_file=None` and the runtime still sees only the environment. The launcher validates before it
+starts: it masks every secret it prints, refuses a Razorpay key that is not `rzp_test_…`, refuses a
+half-configured Razorpay pair, and tells you plainly when AI or Razorpay is unavailable rather than
+pretending otherwise.
 
-`make demo` recreates the `baaki_demo` database and reseeds it, so the demo is repeatable. "Reset demo"
-in the header reseeds without restarting.
+Missing credentials are a warning, not an error — the demo still runs end to end on the deterministic
+path. To demonstrate AI fallback deliberately, start without `OPENAI_API_KEY`.
+
+The keys the launcher understands (all optional except the database):
+
+| Variable | Effect if absent |
+|---|---|
+| `BAAKI_DEMO_SUPERUSER_DSN` | defaults to the local PostgreSQL 16 container |
+| `OPENAI_API_KEY` | AI shows **offline**; recovery uses the deterministic rules path |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay shows **unavailable**; payment collection uses the simulator |
+
+Pre-flight (optional, one live model call): `make demo-check` — safe to run while the demo is up.
+Do **not** run `pytest` while the demo is running; both bootstrap the same cluster roles.
 
 ## The 60-second sequence
 

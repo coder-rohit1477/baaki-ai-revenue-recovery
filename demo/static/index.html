@@ -6,276 +6,766 @@
 <title>Baaki — AI Revenue Recovery</title>
 <style>
   :root{
-    --bg:#0d1117; --panel:#151b23; --panel2:#1b2530; --line:#26303c;
-    --ink:#e6edf3; --dim:#8b98a5; --accent:#4da3ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
-    --ai:#a371f7; --det:#3fb950;
+    --bg:#f6f7f9; --surface:#ffffff; --sunken:#fafbfc; --line:#e4e7ec; --line2:#d0d5dd;
+    --ink:#101828; --ink2:#475467; --dim:#98a2b3;
+    --navy:#0b2545; --brand:#1f6feb; --brand-ink:#ffffff;
+    --ok:#067647; --ok-bg:#ecfdf3; --ok-line:#abefc6;
+    --warn:#b54708; --warn-bg:#fffaeb; --warn-line:#fedf89;
+    --bad:#b42318; --bad-bg:#fef3f2; --bad-line:#fecdca;
+    --ai:#6941c6; --ai-bg:#f4f3ff; --ai-line:#d9d6fe;
+    --r:8px; --sh:0 1px 2px rgba(16,24,40,.05);
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  header{padding:18px 26px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-  .logo{font-size:23px;font-weight:700;letter-spacing:-.5px}
-  .logo span{color:var(--accent)}
-  .tag{font-size:11px;color:var(--dim);border:1px solid var(--line);padding:3px 9px;border-radius:20px}
-  .tag.demo{color:var(--warn);border-color:#4a3c14;background:#241d0c}
-  .spacer{flex:1}
-  main{padding:22px 26px;max-width:1280px;margin:0 auto}
-  .thesis{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:20px;
-          display:flex;gap:26px;align-items:center;flex-wrap:wrap}
-  .thesis .old{color:var(--dim)}
-  .thesis .new{color:var(--ink);font-weight:600}
-  .thesis .new b{color:var(--det)}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:22px}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px 17px}
-  .kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
-  .kpi .v{font-size:27px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+  .num{font-variant-numeric:tabular-nums}
+  .r{text-align:right}
+  .grow{flex:1}
+  .muted{color:var(--ink2)}
+  .meta{font-size:12px;color:var(--dim)}
+
+  header{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+  .hbar{max-width:1360px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;gap:12px}
+  .logo{display:flex;flex-direction:column;line-height:1.15;margin-right:6px}
+  .logo b{font-size:19px;font-weight:700;letter-spacing:-.3px;color:var(--navy)}
+  .logo span{font-size:11px;color:var(--dim);letter-spacing:.2px}
+  .chip{font-size:11px;font-weight:600;color:var(--ink2);background:var(--sunken);
+        border:1px solid var(--line);border-radius:6px;padding:4px 9px;display:inline-flex;align-items:center;gap:6px}
+  .chip.demo{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+  .chip.on{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-line)}
+  .chip.off{color:var(--ink2)}
+  .led{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+
+  main{max-width:1360px;margin:0 auto;padding:20px 24px 56px}
+  .lede{display:flex;align-items:baseline;gap:12px;margin:0 0 16px;flex-wrap:wrap}
+  .lede h1{font-size:20px}
+  .lede p{margin:0;color:var(--ink2);font-size:13.5px}
+
+  button{font:inherit;font-weight:600;border-radius:7px;cursor:pointer;border:1px solid transparent;padding:9px 15px}
+  .btn{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);box-shadow:var(--sh)}
+  .btn:hover{background:#175cd3}
+  .btn.sec{background:var(--surface);color:var(--ink);border-color:var(--line2)}
+  .btn.sec:hover{background:var(--sunken)}
+  .btn.sm{padding:6px 11px;font-size:12.5px}
+  button:disabled{opacity:.55;cursor:not-allowed}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh)}
+  .kpi .l{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--dim)}
+  .kpi .v{font-size:28px;font-weight:700;letter-spacing:-.8px;margin-top:4px;line-height:1.15}
+  .kpi .s{font-size:12px;color:var(--dim);margin-top:3px}
   .kpi.risk .v{color:var(--warn)} .kpi.rec .v{color:var(--ok)}
-  h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin:26px 0 12px}
-  .scn{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
-  .card h3{margin:0 0 4px;font-size:15px}
-  .card .sub{color:var(--dim);font-size:12.5px;min-height:36px}
-  .msg{background:var(--panel2);border-left:3px solid var(--accent);padding:9px 12px;border-radius:4px;
-       margin:11px 0;font-size:13px;color:#cdd9e5}
-  button{background:var(--accent);color:#04121f;border:0;border-radius:7px;padding:9px 15px;font-weight:650;
-         cursor:pointer;font-size:13px}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
-  button.pay{background:var(--ok);color:#04160a}
-  .flow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
-  @media(max-width:820px){.flow{grid-template-columns:1fr}}
-  .pane{border:1px solid var(--line);border-radius:9px;overflow:hidden}
-  .pane .hd{padding:8px 13px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-  .pane.ai .hd{background:#241a3a;color:var(--ai);border-bottom:1px solid #3a2a5c}
-  .pane.det .hd{background:#0f2e18;color:var(--det);border-bottom:1px solid #1d4a29}
-  .pane .bd{padding:12px 13px;font-size:13px}
-  .row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px dashed #222c37}
-  .row:last-child{border:0}
-  .row .k{color:var(--dim)}
-  .row .v{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
-  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
-  .pill.ok{background:#0f2e18;color:var(--ok)} .pill.bad{background:#3d1418;color:var(--bad)}
-  .pill.warn{background:#241d0c;color:var(--warn)} .pill.dim{background:#1b2530;color:var(--dim)}
-  .note{margin-top:11px;font-size:12px;color:var(--dim);border-left:2px solid var(--line);padding-left:10px}
-  .note.hostile{color:var(--bad);border-color:var(--bad)}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);
-     padding:8px 10px;border-bottom:1px solid var(--line)}
-  td{padding:9px 10px;border-bottom:1px solid #1c242e}
-  tr:hover td{background:#182029;cursor:pointer}
-  .num{text-align:right;font-variant-numeric:tabular-nums}
-  pre{background:#0b0f14;border:1px solid var(--line);border-radius:7px;padding:11px;overflow:auto;
-      font-size:11.5px;max-height:230px;color:#b9c6d3}
-  .bal{display:flex;align-items:center;gap:13px;margin-top:11px;font-size:20px;font-weight:700;flex-wrap:wrap}
-  .bal .before{color:var(--dim);text-decoration:line-through}
-  .bal .arrow{color:var(--dim);font-size:15px}
-  .bal .after{color:var(--ok)}
-  .stopped{margin-top:11px;padding:9px 12px;border-radius:7px;background:#0f2e18;color:var(--ok);font-weight:650;font-size:13px}
-  footer{padding:18px 26px;color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:34px}
-  .spin{display:inline-block;width:12px;height:12px;border:2px solid #2a3542;border-top-color:var(--accent);
-        border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
-  @keyframes s{to{transform:rotate(360deg)}}
+
+  .cb{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px 10px;
+      margin-bottom:16px;box-shadow:var(--sh)}
+  .cbt{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+  .stg{flex:1 1 152px;min-width:146px;border:1px solid var(--line);border-radius:7px;padding:8px 11px;background:var(--sunken)}
+  .stg .sl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;display:flex;
+           align-items:center;gap:6px;flex-wrap:wrap}
+  .stg .sd{font-size:11.5px;color:var(--ink2);margin-top:3px;line-height:1.4}
+  .stg.ai{background:var(--ai-bg);border-color:var(--ai-line);border-style:dashed}
+  .stg.ai .sl{color:var(--ai)}
+  .pill{font-size:9.5px;font-weight:700;letter-spacing:.3px;padding:1px 5px;border-radius:4px;text-transform:none;
+        background:#fff;border:1px solid var(--ai-line);color:var(--ai)}
+  .cbar{display:flex;align-items:center;color:var(--line2);font-size:15px;flex:none}
+  .auth{flex:3 1 470px;min-width:300px;border:1px solid var(--ok-line);background:var(--ok-bg);
+        border-radius:7px;padding:7px 9px 9px}
+  .authh{font-size:9.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--ok);
+         margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .authr{display:flex;gap:7px;flex-wrap:wrap}
+  .authr .stg{flex:1 1 130px;min-width:124px;background:#fff;border-color:var(--ok-line)}
+  .authr .stg .sl{color:var(--ok)}
+  .cbc{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink2)}
+  .cbc b{color:var(--ink)}
+  @media(max-width:860px){.cbar{display:none}}
+
+  .cols{display:grid;grid-template-columns:1fr 330px;gap:16px;align-items:start}
+  @media(max-width:1120px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+  .card>.hd{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .card>.hd h3{font-size:14px}
+
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);
+     padding:9px 16px;background:var(--sunken);border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--sunken)}
+  tbody tr.sel{background:#f0f6ff;box-shadow:inset 2px 0 0 var(--brand)}
+  tbody tr:last-child td{border-bottom:0}
+  .who{font-weight:600}
+  .money{font-weight:650;font-variant-numeric:tabular-nums}
+
+  .tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;
+       border:1px solid var(--line2);background:var(--sunken);color:var(--ink2);white-space:nowrap}
+  .tag.ok{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-line)}
+  .tag.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+  .tag.bad{color:var(--bad);background:var(--bad-bg);border-color:var(--bad-line)}
+  .tag.ai{color:var(--ai);background:var(--ai-bg);border-color:var(--ai-line)}
+  .tag.q{background:transparent;color:var(--dim)}
+
+  .drawer{margin-top:16px;background:var(--surface);border:1px solid var(--line2);border-radius:var(--r);
+          overflow:hidden;box-shadow:0 8px 24px rgba(16,24,40,.08)}
+  .dhd{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .dhd .amt{font-size:24px;font-weight:700;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+  .dbd{padding:18px}
+
+  .life{display:flex;align-items:center;flex-wrap:wrap;background:var(--sunken);border:1px solid var(--line);
+        border-radius:7px;padding:11px 13px;margin-bottom:16px}
+  .ls{display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:6px;font-size:11.5px;font-weight:600;
+      color:var(--dim);border:1px solid transparent;white-space:nowrap}
+  .ls.done{color:var(--ok);background:#fff;border-color:var(--ok-line)}
+  .ls.now{color:#fff;background:var(--navy);border-color:var(--navy);font-weight:700;box-shadow:var(--sh)}
+  .lsep{color:var(--line2);padding:0 6px}
+
+  .duo{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch}
+  @media(max-width:900px){.duo{grid-template-columns:1fr}.arrow{transform:rotate(90deg);padding:6px 0}}
+  .pane{border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .pane .ph{padding:8px 12px;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+  .pane.ai{border-color:var(--ai-line)} .pane.ai .ph{background:var(--ai-bg);color:var(--ai);border-bottom:1px solid var(--ai-line)}
+  .pane.pol{border-color:var(--ok-line)} .pane.pol .ph{background:var(--ok-bg);color:var(--ok);border-bottom:1px solid var(--ok-line)}
+  .pane .pb{padding:11px 12px}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:17px;padding:0 13px}
+  .kv{display:flex;justify-content:space-between;gap:14px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .kv:last-child{border-bottom:0}
+  .kv .k{color:var(--ink2)}
+  .kv .v{font-weight:600;text-align:right}
+  .quote{margin-top:8px;padding:7px 10px;background:var(--sunken);border-left:2px solid var(--line2);
+         border-radius:0 5px 5px 0;font-size:12.5px;color:var(--ink2)}
+
+  .msg{background:var(--sunken);border:1px solid var(--line);border-left:3px solid var(--navy);
+       padding:11px 14px;border-radius:0 6px 6px 0;margin-bottom:14px}
+  .msg .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);font-weight:600;margin-bottom:3px}
+
+  .note{margin-top:13px;padding:12px 14px;border-radius:7px;font-size:13px;border:1px solid var(--line);background:var(--sunken)}
+  .note.ok{background:var(--ok-bg);border-color:var(--ok-line);color:#054f31}
+  .note.bad{background:var(--bad-bg);border-color:var(--bad-line);color:#912018}
+  .note.info{background:#eff8ff;border-color:#b2ddff;color:#175cd3}
+
+  .pc{margin-top:16px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .pch{padding:9px 14px;background:var(--sunken);border-bottom:1px solid var(--line);font-size:10.5px;
+       font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--ink2)}
+  .lanes{display:grid;grid-template-columns:1fr 1fr}
+  @media(max-width:860px){.lanes{grid-template-columns:1fr}}
+  .lane{padding:14px}
+  .lane+.lane{border-left:1px solid var(--line)}
+  @media(max-width:860px){.lane+.lane{border-left:0;border-top:1px solid var(--line)}}
+  .lane h4{font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .lane .prov{font-size:11.5px;color:var(--dim);margin:3px 0 9px}
+  .lane .desc{font-size:12.5px;color:var(--ink2);line-height:1.45;margin-bottom:11px}
+  .acts{display:flex;gap:8px;flex-wrap:wrap}
+  .lnk{display:block;margin:9px 0 4px;padding:9px 11px;background:var(--sunken);border:1px solid var(--line2);
+       border-radius:6px;font-size:12px;color:var(--brand);text-decoration:none;word-break:break-all;font-weight:600}
+  .lnk:hover{border-color:var(--brand)}
+
+  .hero{margin-top:14px;border:1px solid var(--ok-line);background:var(--ok-bg);border-radius:var(--r);padding:16px 18px}
+  .hero .big{font-size:34px;font-weight:700;letter-spacing:-1px;color:var(--ok);line-height:1.1;font-variant-numeric:tabular-nums}
+  .hero .cap{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--ok)}
+  .hero .brk{font-size:13px;color:#054f31;margin-top:6px}
+  .hero .stop{margin-top:11px;padding-top:11px;border-top:1px solid var(--ok-line);font-size:13px;color:#054f31}
+  .bal{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 2px}
+  .bal .was{font-size:17px;color:var(--dim);text-decoration:line-through;font-variant-numeric:tabular-nums}
+  .bal .now{font-size:25px;font-weight:700;color:var(--ok);letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+
+  .feed .fi{display:flex;gap:11px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px}
+  .feed .fi:last-child{border-bottom:0}
+  .feed .ic{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-size:11px;
+            font-weight:700;flex:none;border:1px solid var(--line2);background:var(--sunken);color:var(--ink2)}
+  .feed .ic.p{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+  .empty{padding:28px 16px;text-align:center;color:var(--dim);font-size:13px}
+  details{margin-top:12px}
+  details>summary{cursor:pointer;color:var(--ink2);font-size:12.5px;font-weight:600;list-style:none;
+                  padding:7px 11px;border:1px solid var(--line);border-radius:6px;display:inline-block;background:var(--sunken)}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary:hover{border-color:var(--line2)}
+  pre{background:#0d1117;color:#c9d1d9;border-radius:6px;padding:11px;overflow:auto;font-size:11px;max-height:240px;margin:9px 0 0}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:currentColor;
+        border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  .btn.sec .spin{border-color:var(--line2);border-top-color:var(--ink2)}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .skel{background:linear-gradient(90deg,#eef0f3,#f7f8fa,#eef0f3);background-size:200% 100%;
+        animation:sk 1.2s ease-in-out infinite;border-radius:5px}
+  @keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  /* nav */
+  .nav{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .nav button{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;
+    padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--ink2);box-shadow:none}
+  .nav button:hover{color:var(--ink);background:transparent}
+  .nav button.act{color:var(--brand);border-bottom-color:var(--brand)}
+  .nav .n{font-size:11px;font-weight:700;background:var(--sunken);border:1px solid var(--line);
+    border-radius:20px;padding:0 6px;margin-left:6px;color:var(--ink2)}
+  .nav .n.hot{background:var(--ai-bg);border-color:var(--ai-line);color:var(--ai)}
+  .scen{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+  .scen .lb{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);margin-right:2px}
+  .scen button{font-size:12.5px;padding:5px 11px;background:var(--surface);border:1px solid var(--line2);
+    color:var(--ink);border-radius:20px;box-shadow:none;font-weight:600}
+  .scen button:hover{border-color:var(--brand);color:var(--brand)}
+  .page{display:none} .page.on{display:block}
+
+  /* funnel */
+  .fun{display:flex;gap:0;flex-wrap:wrap;align-items:stretch}
+  .fs{flex:1 1 118px;min-width:112px;border:1px solid var(--line);background:var(--sunken);border-radius:7px;
+      padding:10px 12px;margin-right:6px;margin-bottom:6px;position:relative}
+  .fs .fn{font-size:22px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .fs .fl{font-size:11px;color:var(--ink2);margin-top:1px;line-height:1.3}
+  .fs.z .fn{color:var(--dim)}
+  .fs.hit{background:#fff;border-color:var(--ok-line)} .fs.hit .fn{color:var(--ok)}
+
+  /* attention + approvals */
+  .att{display:flex;gap:11px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:flex-start}
+  .att:last-child{border-bottom:0}
+  .ap{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:12px;background:var(--surface)}
+  .ap .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:9px}
+  .ap .top h4{font-size:15px}
+  .apg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+  .apg .c{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--sunken)}
+  .apg .c .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--dim);font-weight:600}
+  .apg .c .v{font-size:13.5px;font-weight:600;margin-top:2px}
+  .apg .c.ok .v{color:var(--ok)}
+
+  /* trust panel */
+  .trust{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.trust{grid-template-columns:1fr}}
+  .tcol{border:1px solid var(--line);border-radius:7px;padding:12px 14px}
+  .tcol.can{border-color:var(--ok-line);background:var(--ok-bg)}
+  .tcol.cant{border-color:var(--bad-line);background:var(--bad-bg)}
+  .tcol h4{font-size:11px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px}
+  .tcol.can h4{color:var(--ok)} .tcol.cant h4{color:var(--bad)}
+  .tcol li{list-style:none;font-size:13px;padding:3px 0;color:var(--ink2)}
+  .tcol ul{margin:0;padding:0}
+
+  /* timeline */
+  .tl{padding:4px 0}
+  .tle{display:flex;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .tle:last-child{border-bottom:0}
+  .tle .ln{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 6px;
+    border-radius:4px;height:fit-content;flex:none;min-width:56px;text-align:center}
+  .ln.AI{background:var(--ai-bg);color:var(--ai);border:1px solid var(--ai-line)}
+  .ln.POLICY{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-line)}
+  .ln.ACTION{background:var(--sunken);color:var(--ink2);border:1px solid var(--line2)}
+  .ln.MONEY{background:#eff8ff;color:#175cd3;border:1px solid #b2ddff}
+
+  .foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;line-height:1.6}
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">BAAKI<span>.</span></div>
-  <div>AI Revenue Recovery</div>
-  <div class="spacer"></div>
-  <div class="tag demo">DEMO · SYNTHETIC DATA</div>
-  <div class="tag" id="modeltag">model —</div>
-  <div class="tag" id="livetag">live —</div>
-  <button class="ghost" onclick="reset()">Reset demo</button>
-</header>
+
+<header><div class="hbar">
+  <div class="logo"><b>Baaki</b><span>AI Revenue Recovery</span></div>
+  <div class="grow"></div>
+  <span class="chip demo">DEMO · SYNTHETIC DATA</span>
+  <span class="chip off" id="c-ai" title="—"><span class="led"></span>AI —</span>
+  <span class="chip off" id="c-rzp" title="—"><span class="led"></span>Razorpay —</span>
+  <button class="btn sec sm" id="btn-reset" onclick="resetDemo()">Reset demo</button>
+</div></header>
 
 <main>
-  <div class="thesis">
-    <div class="old">Traditional collection:&nbsp; REMINDER → REMINDER → REMINDER</div>
-    <div class="new">Baaki:&nbsp; UNDERSTAND → <b>DECIDE SAFELY</b> → ACT → VERIFY PAYMENT → STOP</div>
+  <div class="lede">
+    <h1>Recovery operations</h1>
+    <p>Recover overdue revenue without losing control.</p>
   </div>
 
-  <div class="kpis">
-    <div class="kpi risk"><div class="l">Revenue at risk</div><div class="v" id="k-risk">—</div></div>
-    <div class="kpi rec"><div class="l">Recovered</div><div class="v" id="k-rec">—</div></div>
-    <div class="kpi"><div class="l">Overdue accounts</div><div class="v" id="k-od">—</div></div>
-    <div class="kpi"><div class="l">Decisions on record</div><div class="v" id="k-ptp">—</div></div>
+  <div class="nav" id="nav">
+    <button class="act" onclick="go('overview')" id="t-overview">Overview</button>
+    <button onclick="go('queue')" id="t-queue">Recovery queue</button>
+    <button onclick="go('approvals')" id="t-approvals">Approvals<span class="n" id="n-ap">0</span></button>
+    <button onclick="go('activity')" id="t-activity">Activity</button>
+    <button onclick="go('safety')" id="t-safety">Safety</button>
+  </div>
+  <div class="scen" id="scen"></div>
+
+  <div class="page on" id="p-overview">
+    <div class="kpis" id="kpis">
+      <div class="kpi"><div class="skel" style="height:58px"></div></div>
+      <div class="kpi"><div class="skel" style="height:58px"></div></div>
+      <div class="kpi"><div class="skel" style="height:58px"></div></div>
+      <div class="kpi"><div class="skel" style="height:58px"></div></div>
+      <div class="kpi"><div class="skel" style="height:58px"></div></div>
+    </div>
+
+    <section class="cb" aria-label="How a recovery decision is made">
+      <div class="cbt">
+        <div class="stg"><div class="sl">Inbound</div>
+          <div class="sd">Customer message or provider event</div></div>
+        <span class="cbar">&rarr;</span>
+        <div class="stg ai"><div class="sl">AI proposes <span class="pill">proposal only</span></div>
+          <div class="sd">Reads intent, drafts a structured action proposal. Writes nothing.</div></div>
+        <span class="cbar">&rarr;</span>
+        <div class="auth">
+          <div class="authh">Deterministic control boundary &mdash; the only authority over money</div>
+          <div class="authr">
+            <div class="stg"><div class="sl">Validator</div><div class="sd">Schema, evidence and safety checks</div></div>
+            <div class="stg"><div class="sl">Policy kernel</div><div class="sd">Contactability, authority and tier gates</div></div>
+            <div class="stg"><div class="sl">Ledger</div><div class="sd">Balance, payment state and stopping rules</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="cbc"><b>AI proposes. Deterministic code decides.</b> Providers confirm payment, and the ledger
+        determines when recovery stops.</div>
+    </section>
+
+    <div class="cols">
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="hd"><h3>Recovery funnel</h3><span class="meta">counted from committed state</span></div>
+          <div style="padding:14px 16px 8px"><div class="fun" id="funnel"></div></div>
+        </div>
+        <div class="card">
+          <div class="hd"><h3>Attention required</h3><span class="meta">accounts a human should look at</span></div>
+          <div id="attention"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="hd"><h3>Provider status</h3></div>
+        <div style="padding:14px 16px" id="provider"></div>
+      </div>
+    </div>
   </div>
 
-  <h2>Judge scenarios</h2>
-  <div class="scn" id="scn"></div>
-
-  <h2>Accounts <span style="color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0">— click a row for the full audit trail</span></h2>
-  <div class="card" style="padding:0;overflow:hidden">
-    <table id="acct"><thead><tr>
-      <th>Account</th><th>Invoice</th><th>State</th><th class="num">Days overdue</th><th class="num">Outstanding</th>
-    </tr></thead><tbody></tbody></table>
+  <div class="page" id="p-queue">
+    <div class="cols">
+      <div>
+        <div class="card">
+          <div class="hd"><h3>Recovery queue</h3>
+            <span class="meta">Customer replies first, then largest exposure</span>
+            <div class="grow"></div><span class="meta" id="qn"></span></div>
+          <div id="queue"><div style="padding:16px"><div class="skel" style="height:56px"></div></div></div>
+        </div>
+        <div id="drawer"></div>
+      </div>
+      <div class="card">
+        <div class="hd"><h3>Recent activity</h3><span class="meta">decisions &amp; payments</span></div>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
   </div>
 
-  <div id="trail"></div>
+  <div class="page" id="p-approvals">
+    <div class="card">
+      <div class="hd"><h3>Human approval required</h3>
+        <span class="meta">Tier-2 actions the policy kernel refused to run autonomously</span></div>
+      <div style="padding:16px" id="approvals"></div>
+    </div>
+  </div>
+
+  <div class="page" id="p-activity">
+    <div class="card">
+      <div class="hd"><h3>Audit timeline</h3><span class="meta">every recorded event, newest first</span></div>
+      <div class="tl" id="timeline"></div>
+    </div>
+  </div>
+
+  <div class="page" id="p-safety">
+    <div class="card">
+      <div class="hd"><h3>Authority model</h3><span class="meta">what the model may and may not do</span></div>
+      <div style="padding:16px">
+        <div class="trust">
+          <div class="tcol can"><h4>The model can</h4><ul>
+            <li>✓ Read and understand customer messages</li>
+            <li>✓ Extract commitments — amount, date, intent</li>
+            <li>✓ Cite verbatim evidence for every claim</li>
+            <li>✓ Propose a structured recovery action</li></ul></div>
+          <div class="tcol cant"><h4>The model cannot</h4><ul>
+            <li>✕ Change a balance or write a ledger entry</li>
+            <li>✕ Mark an invoice paid</li>
+            <li>✕ Issue a discount, refund or write-off</li>
+            <li>✕ Contact someone who opted out</li>
+            <li>✕ Execute a Tier-2 action, or approve its own</li></ul></div>
+        </div>
+        <div class="note info" style="margin-top:14px">The last two are structural, not policy text. The action
+          catalogue has no discount, write-off or mark-paid member, so the model cannot express them; and no
+          role in this system holds UPDATE on a recovery action, so nothing — model or otherwise — can move an
+          action out of <b>pending approval</b>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    All figures are read back from the ledger after committed deterministic code wrote them. The model proposes;
+    it never writes money.<br>
+    Payment confirmation is read from <b>Razorpay Test Mode</b> and reconciled through the same deterministic
+    ledger used by the simulator. Test Mode is a provider sandbox — no real money moves, and no production
+    Razorpay integration is claimed. The simulator path is local deterministic simulation with no external
+    payment provider. Recovery data is synthetic.
+  </div>
 </main>
 
-<footer>
-  Every amount, decision and ledger line on this page was produced by the committed deterministic pipeline and read back
-  from PostgreSQL. The model proposes; it never writes money. Payment confirmation is <b>simulated</b> — this build has
-  no live Razorpay integration.
-</footer>
-
 <script>
-const rupees = p => "₹" + (p/100).toLocaleString("en-IN", {maximumFractionDigits:0});
+const INR = p => "₹" + (p/100).toLocaleString("en-IN",{maximumFractionDigits:0});
 const el = id => document.getElementById(id);
-let STATE = null;
+const esc = t => String(t??"").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+const HUMAN = {WILL_PAY_ON_DATE:"Promise to pay", REQUEST_INSTALLMENTS:"Instalments requested",
+  DISPUTE_AMOUNT:"Amount disputed", DISPUTE_DELIVERY:"Delivery disputed", ALREADY_PAID_CLAIM:"Claims already paid",
+  WRONG_CONTACT:"Wrong contact", NEEDS_DOCUMENT:"Document requested", UNSUBSCRIBE:"Opt-out requested",
+  NO_CLEAR_INTENT:"No clear intent"};
+let S=null, OPEN=null, RESULT={};
 
-async function api(path, body){
-  const opt = body ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)} : {};
-  const r = await fetch(path, opt);
-  return r.json();
+async function api(p,b){
+  const o = b ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)} : {};
+  try{ return await (await fetch(p,o)).json(); }
+  catch(e){ return {error:"Unreachable", detail:"The demo server did not respond."}; }
 }
 
 async function load(){
-  STATE = await api("/api/state");
-  const d = STATE.dashboard;
-  el("k-risk").textContent = rupees(d.at_risk_paise);
-  el("k-rec").textContent  = rupees(d.recovered_paise);
-  el("k-od").textContent   = d.overdue_accounts;
-  el("k-ptp").textContent  = d.decisions;
-  el("modeltag").textContent = "model " + STATE.model_id;
-  el("livetag").textContent  = STATE.live_available ? "live AI: ON" : "live AI: OFF (no key)";
-  el("livetag").style.color  = STATE.live_available ? "var(--ok)" : "var(--warn)";
-  renderScenarios();
-  renderAccounts();
+  S = await api("/api/state");
+  if(S.error){ el("queue").innerHTML = `<div class="empty">Could not load recovery data. ${esc(S.detail||"")}</div>`; return; }
+  const d = S.dashboard;
+  const settled = d.recovered_paise, exposure = settled + d.at_risk_paise;
+  const rate = exposure > 0 ? Math.round(settled/exposure*100) : 0;
+  el("kpis").innerHTML = `
+    <div class="kpi risk"><div class="l">Revenue at risk</div><div class="v num">${INR(d.at_risk_paise)}</div>
+      <div class="s">${d.overdue_accounts} overdue ${d.overdue_accounts===1?"invoice":"invoices"}</div></div>
+    <div class="kpi rec"><div class="l">Recovered</div><div class="v num">${INR(d.recovered_paise)}</div>
+      <div class="s">confirmed by a payment provider</div></div>
+    <div class="kpi"><div class="l">Recovery rate</div><div class="v num">${rate}%</div>
+      <div class="s">of ${INR(exposure)} total exposure</div></div>
+    <div class="kpi"><div class="l">Needs attention</div><div class="v num">${(S.attention||[]).length}</div>
+      <div class="s">accounts awaiting a human</div></div>
+    <div class="kpi"><div class="l">Recovery decisions</div><div class="v num">${d.decisions}</div>
+      <div class="s">taken by deterministic policy</div></div>`;
+  const ai = el("c-ai");
+  ai.className = "chip " + (S.live_available ? "on" : "off");
+  ai.innerHTML = `<span class="led"></span>AI ${S.live_available?"live":"offline"}`;
+  ai.title = S.live_available ? `Model: ${S.model_id}` : "No model credential in this environment";
+  const rz = el("c-rzp"), on = (S.razorpay||{}).available;
+  rz.className = "chip " + (on ? "on" : "off");
+  rz.innerHTML = `<span class="led"></span>Razorpay ${on?"Test Mode":"unavailable"}`;
+  rz.title = on ? "Razorpay Test Mode sandbox — no real money moves" : "No Razorpay Test Mode credentials here";
+  renderQueue(); renderFeed(); renderFunnel(); renderAttention(); renderProvider();
+  renderApprovals(); renderTimeline(); renderScenarios();
+  if(OPEN) openAccount(OPEN, true);
+}
+
+function scenarioFor(id){
+  const k = Object.keys(S.scenarios).find(k => S.scenarios[k].account_id === id);
+  return k ? {key:k, ...S.scenarios[k]} : null;
+}
+function started(a){ const sc = scenarioFor(a.account_id); return sc ? a.outstanding_paise < sc.amount_paise : false; }
+
+function statusPill(a){
+  if(a.state === "PAID") return '<span class="tag ok">Paid</span>';
+  if(a.opt_out || a.contactable === 0) return '<span class="tag bad">Opted out</span>';
+  if(a.latest_verdict === "REQUIRE_APPROVAL") return '<span class="tag ai">Escalated</span>';
+  if(started(a)) return '<span class="tag warn">Part paid</span>';
+  if(a.latest_intent === "WILL_PAY_ON_DATE") return '<span class="tag warn">Promise to pay</span>';
+  if(a.days_overdue > 0) return '<span class="tag warn">Overdue</span>';
+  return '<span class="tag">Open</span>';
+}
+
+function renderQueue(){
+  const rows = [...S.accounts].sort((x,y)=>
+    (scenarioFor(y.account_id)?1:0)-(scenarioFor(x.account_id)?1:0) || y.outstanding_paise-x.outstanding_paise);
+  el("qn").textContent = `${rows.length} accounts`;
+  if(!rows.length){ el("queue").innerHTML = '<div class="empty">No accounts loaded. Use “Reset demo”.</div>'; return; }
+  el("queue").innerHTML = `<table><thead><tr>
+    <th>Customer</th><th>Invoice</th><th class="r">Outstanding</th><th class="r">Days overdue</th>
+    <th>Latest intent</th><th>Status</th><th>Latest decision</th><th></th></tr></thead><tbody>${rows.map(a=>`
+    <tr onclick="openAccount('${a.account_id}')" class="${OPEN===a.account_id?'sel':''}">
+      <td class="who">${esc(a.name)}</td>
+      <td class="meta num">${esc(a.invoice_number)}</td>
+      <td class="r money">${INR(a.outstanding_paise)}</td>
+      <td class="r num muted">${a.days_overdue||0}</td>
+      <td class="muted">${a.latest_intent ? esc(HUMAN[a.latest_intent] || a.latest_intent) : '<span class="meta">—</span>'}</td>
+      <td>${statusPill(a)}</td>
+      <td>${a.latest_action ? `<span class="tag q">${esc(a.latest_action)}</span>` : '<span class="meta">Not yet evaluated</span>'}</td>
+      <td class="r"><span class="meta">View</span></td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+function renderFeed(){
+  const f = S.activity || [];
+  el("feed").innerHTML = f.length ? f.map(x => x.kind === "PAYMENT"
+    ? `<div class="fi"><div class="ic p">₹</div><div><b>${INR(x.amount_paise)} payment confirmed</b><br>
+        <span class="meta">${esc(x.name)} · ${esc(x.detail)}</span><br>
+        <span class="meta">${esc(x.status)}</span></div></div>`
+    : `<div class="fi"><div class="ic">◆</div><div><b>${esc(x.detail)}</b><br>
+        <span class="meta">${esc(x.name)} · ${esc(x.status)}</span></div></div>`).join("")
+    : '<div class="empty">No activity yet.<br>Open an account and run a recovery decision.</div>';
+}
+
+function lifecycle(a, r){
+  const paid = a.state === "PAID";
+  const ptp = !!(r && r.interpretation && r.interpretation.promised_date_raw);
+  const steps = [["Overdue", a.days_overdue>0||paid], ["Promise to pay", ptp],
+                 ["Part paid", started(a)&&!paid], ["Paid", paid], ["Recovery stopped", paid]];
+  const last = steps.reduce((m,s,i)=> s[1]?i:m, -1);
+  return `<div class="life">${steps.map(([n,done],i)=>
+    `${i?'<span class="lsep">→</span>':''}<span class="ls ${done?'done':''} ${i===last?'now':''}">${done?'✓':'○'} ${n}</span>`
+  ).join("")}</div>`;
+}
+
+async function openAccount(id, keep){
+  OPEN = id; renderQueue();
+  const a = S.accounts.find(x=>x.account_id===id); if(!a) return;
+  const sc = scenarioFor(id), r = RESULT[id];
+  el("drawer").innerHTML = `<div class="drawer">
+    <div class="dhd">
+      <div><h2>${esc(a.name)}</h2>
+        <span class="meta">${esc(a.invoice_number)} · due ${esc(String(a.due_date).slice(0,10))}</span></div>
+      <div class="grow"></div>
+      <div class="r"><div class="meta">Outstanding</div><div class="amt">${INR(a.outstanding_paise)}</div></div>
+      ${statusPill(a)}
+    </div>
+    <div class="dbd">
+      ${lifecycle(a, r)}
+      ${sc ? `<div class="msg"><div class="lbl">Inbound customer message${sc.mode==='hostile'?' · reply from a compromised model':''}</div>“${esc(sc.message)}”</div>` : ""}
+      <div id="run-${id}">${r ? renderResult(id, r) : (sc
+        ? `<div class="acts"><button class="btn" id="b-${id}" onclick="run('${id}','${sc.key}')">Analyse &amp; decide</button></div>
+           <div class="meta" style="margin-top:8px">Runs the model, then the deterministic validator and policy kernel.</div>`
+        : `<div class="note info">No inbound reply from this customer in the demo dataset — Baaki evaluates the
+             account on its scheduled recovery run.</div>`)}</div>
+    </div></div>`;
+  if(!keep) el("drawer").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function run(id, key){
+  const b = el("b-"+id); b.disabled = true; b.innerHTML = '<span class="spin"></span> Analysing customer response…';
+  api("/api/run",{scenario:key}).then(async r=>{
+    if(r.error){ el("run-"+id).innerHTML = `<div class="note bad"><b>Could not complete the analysis.</b><br>
+      ${esc(r.detail||r.error)}</div>`; return; }
+    RESULT[id] = r; await load();
+  });
+}
+
+function renderResult(id, r){
+  const i = r.interpretation || {};
+  const rejected = (r.rejection_reasons||[]).length>0 || r.validation_outcome === "REJECT";
+  const sc = scenarioFor(id), a = S.accounts.find(x=>x.account_id===id);
+  const ev = (i.evidence||[]).map(e=>`<div class="quote"><b>${esc(e.field)}</b> ← “${esc(e.quote)}”</div>`).join("");
+  return `
+  <div class="duo">
+    <div class="pane ai"><div class="ph">AI understanding ${r.live?"· live model":"· scripted reply"}</div><div class="pb">
+      <div class="kv"><span class="k">Intent</span><span class="v">${esc(HUMAN[i.intent] || i.intent || "—")}</span></div>
+      <div class="kv"><span class="k">Promised amount</span><span class="v">${esc(i.promised_amount_raw ?? "—")}</span></div>
+      <div class="kv"><span class="k">Promised date</span><span class="v">${esc(i.promised_date_raw ?? "—")}</span></div>
+      <div class="kv"><span class="k">Confidence</span><span class="v">${i.confidence ?? "—"}</span></div>
+      ${ev || '<div class="quote">No supporting evidence returned.</div>'}
+    </div></div>
+    <div class="arrow">→</div>
+    <div class="pane pol"><div class="ph">Deterministic decision</div><div class="pb">
+      <div class="kv"><span class="k">Evidence valid</span><span class="v">${rejected?'<span class="tag bad">No</span>':'<span class="tag ok">Yes</span>'}</span></div>
+      <div class="kv"><span class="k">Validator</span><span class="v">${esc(r.validation_outcome ?? "—")}</span></div>
+      ${rejected?`<div class="kv"><span class="k">Reason</span><span class="v">${r.rejection_reasons.map(esc).join("<br>")}</span></div>`:""}
+      <div class="kv"><span class="k">Action</span><span class="v">${esc(r.action_type ?? "none")}</span></div>
+      <div class="kv"><span class="k">Authority tier</span><span class="v">${r.tier ?? "—"}${r.verdict==="REQUIRE_APPROVAL"?" · approval required":""}</span></div>
+      <div class="kv"><span class="k">Contactable</span><span class="v">${a.contactable>0?a.contactable+" channel":'<span class="tag bad">none — opted out</span>'}</span></div>
+    </div></div>
+  </div>
+  ${verdictNote(r, sc, a)}
+  ${sc && sc.key==='A' ? collectBlock(id, a) : ""}
+  <details><summary>View technical details</summary><pre>${esc(JSON.stringify(r.telemetry,null,1))}</pre></details>`;
+}
+
+function verdictNote(r, sc, a){
+  if(sc && sc.key==='B') return `<div class="note bad">
+    <b>Proposal rejected. Financial state: UNCHANGED. External delivery: NOT SENT.</b><br>
+    The model asked for a 40% discount, a settlement amount and a mark-paid flag. None of it happened. The action
+    above was chosen by the <b>deterministic policy tree</b>, not the model, and is queued only.<br>
+    The action catalogue has no discount, write-off or mark-paid member — the model cannot express those at all —
+    and the validator rejected the whole proposal as ${esc((r.rejection_reasons||["SCHEMA_VIOLATION"])[0])}.</div>`;
+  if(sc && sc.key==='C') return `<div class="note info">
+    <b>Opt-out recorded immediately.</b> That contact is excluded from every future recovery decision, and no
+    message was queued or sent.<br>
+    The model additionally proposed <b>${esc(r.action_type||"an action")}</b>. Because that is a tier-${r.tier ?? 2}
+    action, the deterministic kernel refused to run it autonomously and held it for human approval.</div>`;
+  if(a.state === "PAID") return "";
+  return `<div class="note ok"><b>Action permitted at tier ${r.tier ?? 0}.</b> Recorded against the invoice and
+    queued. Nothing is transmitted in this build.</div>`;
+}
+
+function collectBlock(id, a){
+  if(a.state === "PAID") return recoveredHero(id, a);
+  const on = (S.razorpay||{}).available, link = (S.links||{})[a.invoice_id];
+  return `<div class="pc"><div class="pch">Payment collection</div><div class="lanes">
+    <div class="lane">
+      <h4>Razorpay ${on?'<span class="tag ok">Test Mode</span>':'<span class="tag">unavailable</span>'}</h4>
+      <div class="prov">Provider · Razorpay Test Mode sandbox</div>
+      <div class="desc">${on
+        ? `A real hosted payment page. Partial payments enabled, minimum first payment ₹10,000. Confirmation is
+           read back from the provider — never assumed.`
+        : `No Test Mode credentials in this environment. Export RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET, then
+           restart the demo.`}</div>
+      ${!on ? "" : link
+        ? `<a class="lnk" href="${esc(link.short_url)}" target="_blank" rel="noopener">${esc(link.short_url)}</a>
+           <div class="meta">${esc(link.id)} · ref ${esc(link.reference_id)}</div>
+           <div class="acts" style="margin-top:10px">
+             <button class="btn" id="rc-${id}" onclick="rzCheck('${id}','${a.invoice_id}')">Check for payment</button></div>`
+        : `<div class="acts"><button class="btn" id="rl-${id}" onclick="rzLink('${id}')">Create payment link</button></div>`}
+      <div id="rz-${id}"></div>
+    </div>
+    <div class="lane">
+      <h4>Deterministic simulator <span class="tag">Local demo</span></h4>
+      <div class="prov">Provider · none — local deterministic simulation</div>
+      <div class="desc">Local deterministic simulation — no external payment provider. Uses the same sweep,
+        payment and ledger writers, so the guaranteed replay path is identical downstream.</div>
+      ${payBlock(id, a)}
+    </div>
+  </div></div>`;
+}
+
+function recoveredHero(id, a){
+  const sc = scenarioFor(id), total = sc ? sc.amount_paise : 0;
+  const parts = (S.activity||[]).filter(x=>x.kind==="PAYMENT" && x.name===a.name);
+  const src = parts.length ? parts[0].detail : "a payment provider";
+  return `<div class="hero">
+    <div class="cap">Recovered · confirmed by ${esc(src)}</div>
+    <div class="big">${INR(total)}</div>
+    <div class="brk">${esc(a.invoice_number)} · ${parts.map(p=>INR(p.amount_paise)).join(" + ") || "settled"}</div>
+    <div class="stop"><b>Paid · recovery stopped.</b> Invoice settled, so the account is no longer an eligible
+      recovery candidate and further outreach is automatically blocked. No human switched it off.</div>
+  </div>`;
+}
+
+async function rzLink(id){
+  const b = el("rl-"+id); b.disabled = true; b.innerHTML = '<span class="spin"></span> Creating payment link…';
+  const r = await api("/api/razorpay/link",{scenario:"A"});
+  if(r.error){ el("rz-"+id).innerHTML = `<div class="note bad"><b>Unable to create the payment link.</b><br>
+    ${esc(r.detail||r.error)}<br>The deterministic simulator beside this is unaffected.</div>`;
+    b.disabled=false; b.textContent="Retry"; return; }
+  await load(); openAccount(id, true);
+}
+
+async function rzCheck(id, invoice_id){
+  const b = el("rc-"+id); b.disabled = true; b.innerHTML = '<span class="spin"></span> Checking Razorpay Test Mode…';
+  const before = S.accounts.find(x=>x.account_id===id).outstanding_paise;
+  const r = await api("/api/razorpay/check",{invoice_id});
+  if(r.error){ el("rz-"+id).innerHTML = `<div class="note bad"><b>Unable to reconcile payment.</b><br>
+    ${esc(r.detail||r.error)}</div>`; b.disabled=false; b.textContent="Check for payment"; return; }
+  await load(); openAccount(id, true);
+  const slot = el("rz-"+id); if(!slot) return;
+  if(!r.applied.length){
+    slot.innerHTML = `<div class="note info"><b>Awaiting payment.</b> Razorpay reports no new captured payment
+      for this invoice${r.already_reconciled.length?` beyond the ${r.already_reconciled.length} already reconciled`:""}.</div>`;
+    return;
+  }
+  const got = r.applied.reduce((n,x)=>n+x.amount_paise,0);
+  slot.innerHTML = `<div class="bal"><span class="was">${INR(before)}</span><span class="muted">→</span>
+      <span class="now">${INR(r.outstanding_paise)}</span>
+      <span class="tag ok">${INR(got)} confirmed in Razorpay Test Mode</span></div>
+    <div class="meta">Reconciled through the same ledger as the simulator · ${r.applied.map(x=>esc(x.provider_payment_id)).join(", ")}</div>`;
+}
+
+function payBlock(id, a){
+  const rem = a.outstanding_paise, part = 1000000, amt = rem > part ? part : rem;
+  return `<div class="acts">
+      <button class="btn sec" id="p-${id}" onclick="pay('${id}','${a.invoice_id}',${amt})">
+        Simulate ${INR(amt)}</button></div>
+    <div id="pay-${id}"></div>`;
+}
+
+async function pay(id, invoice_id, paise){
+  const b = el("p-"+id); b.disabled = true; b.innerHTML = '<span class="spin"></span> Recording payment…';
+  const before = S.accounts.find(x=>x.account_id===id).outstanding_paise;
+  const r = await api("/api/pay",{invoice_id, amount_paise:paise});
+  if(r.error){ el("pay-"+id).innerHTML = `<div class="note bad"><b>Unable to record the payment.</b><br>
+    ${esc(r.detail||r.error)}</div>`; b.disabled=false; b.textContent="Retry"; return; }
+  await load(); openAccount(id, true);
+  const slot = el("pay-"+id); if(!slot) return;
+  slot.innerHTML = `<div class="bal"><span class="was">${INR(before)}</span><span class="muted">→</span>
+      <span class="now">${INR(r.outstanding_paise)}</span>
+      <span class="tag">${INR(paise)} SIMULATED</span></div>
+    <div class="meta">Local deterministic simulation — no external payment provider.</div>`;
+}
+
+async function resetDemo(){
+  const b = el("btn-reset"); b.disabled = true; b.innerHTML = '<span class="spin"></span> Resetting…';
+  await api("/api/reset",{}); RESULT={}; OPEN=null; el("drawer").innerHTML="";
+  await load(); b.disabled=false; b.textContent="Reset demo";
+}
+
+/* ── navigation ─────────────────────────────────────────── */
+const PAGES = ["overview","queue","approvals","activity","safety"];
+function go(page){
+  PAGES.forEach(p=>{
+    el("p-"+p).classList.toggle("on", p===page);
+    el("t-"+p).classList.toggle("act", p===page);
+  });
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function renderScenarios(){
-  el("scn").innerHTML = Object.entries(STATE.scenarios).map(([k,s]) => `
-    <div class="card" id="card-${k}">
-      <h3>Scenario ${k} — ${s.title}</h3>
-      <div class="sub">${s.subtitle}</div>
-      <div class="row"><span class="k">${s.name}</span><span class="v">${s.invoice_number} · ${rupees(s.amount_paise)} · ${s.days_overdue}d overdue</span></div>
-      <div class="msg">“${s.message}”</div>
-      <button onclick="run('${k}')" id="btn-${k}">Run AI analysis</button>
-      <div id="out-${k}"></div>
-    </div>`).join("");
+  const map = {A:"Promise to pay · Razorpay", B:"Adversarial AI", C:"Opt-out"};
+  const btns = Object.keys(S.scenarios).map(k=>{
+    const sc = S.scenarios[k];
+    return `<button onclick="jump('${sc.account_id}')">${esc(map[k]||sc.title)}</button>`;
+  }).join("");
+  const ap = (S.approvals||[]).length
+    ? `<button onclick="go('approvals')">Human approval</button>` : "";
+  el("scen").innerHTML = `<span class="lb">Demo scenarios</span>${btns}${ap}`;
+}
+function jump(id){ go("queue"); openAccount(id); }
+
+/* ── overview surfaces ──────────────────────────────────── */
+function renderFunnel(){
+  el("funnel").innerHTML = (S.funnel||[]).map(f=>
+    `<div class="fs ${f.n>0?'hit':'z'}"><div class="fn">${f.n}</div><div class="fl">${esc(f.label)}</div></div>`
+  ).join("");
 }
 
-function renderAccounts(){
-  document.querySelector("#acct tbody").innerHTML = STATE.accounts.map(a => `
-    <tr onclick="trail('${a.account_id}','${a.name}')">
-      <td>${a.name}${a.opt_out ? ' <span class="pill dim">OPTED OUT</span>' : ''}</td>
-      <td>${a.invoice_number}</td>
-      <td><span class="pill ${a.state==='PAID'?'ok':a.state==='OVERDUE'?'warn':'dim'}">${a.state}</span></td>
-      <td class="num">${Math.max(0, Math.round((Date.now()-new Date(a.due_date))/864e5))}</td>
-      <td class="num">${rupees(a.outstanding_paise)}</td>
-    </tr>`).join("");
+function renderAttention(){
+  const a = S.attention||[];
+  el("attention").innerHTML = a.length ? a.map(x=>`
+    <div class="att"><span class="tag ${esc(x.tone)}">${esc(x.kind)}</span>
+      <div><b>${esc(x.name)}</b> <span class="meta">· ${esc(x.invoice)}</span><br>
+      <span class="meta">${esc(x.detail)}</span></div></div>`).join("")
+    : '<div class="empty">Nothing needs a human right now.</div>';
 }
 
-async function run(k){
-  const btn = el("btn-"+k), out = el("out-"+k);
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> analysing…';
-  const r = await api("/api/run", {scenario:k});
-  btn.disabled = false; btn.textContent = "Run AI analysis";
-  if (r.error){ out.innerHTML = `<div class="note hostile">${r.error}: ${r.detail}</div>`; return; }
-
-  const i = r.interpretation || {};
-  const rejected = (r.rejection_reasons||[]).length > 0 || r.validation_outcome === "REJECT";
-  const s = STATE.scenarios[k];
-
-  out.innerHTML = `
-    <div class="flow">
-      <div class="pane ai"><div class="hd">🤖 AI interpretation ${r.live ? "· live call" : "· scripted"}</div><div class="bd">
-        <div class="row"><span class="k">Intent</span><span class="v">${i.intent ?? "—"}</span></div>
-        <div class="row"><span class="k">Promised amount</span><span class="v">${i.promised_amount_raw ?? "—"}</span></div>
-        <div class="row"><span class="k">Promised date</span><span class="v">${i.promised_date_raw ?? "—"}</span></div>
-        <div class="row"><span class="k">Sentiment</span><span class="v">${i.sentiment ?? "—"}</span></div>
-        <div class="row"><span class="k">Confidence</span><span class="v">${i.confidence ?? "—"}</span></div>
-        <div class="row"><span class="k">Parse status</span><span class="v">${r.parse_status ?? "—"}</span></div>
-      </div></div>
-      <div class="pane det"><div class="hd">🔒 Deterministic policy decision</div><div class="bd">
-        <div class="row"><span class="k">Validator</span><span class="v">
-          <span class="pill ${rejected?'bad':'ok'}">${r.validation_outcome ?? "—"}</span></span></div>
-        ${rejected ? `<div class="row"><span class="k">Reasons</span><span class="v">${r.rejection_reasons.join("<br>")}</span></div>`:""}
-        <div class="row"><span class="k">Verdict</span><span class="v">${r.verdict ?? "—"}</span></div>
-        <div class="row"><span class="k">Action</span><span class="v">${r.action_type ?? "NOT SENT"}</span></div>
-        <div class="row"><span class="k">Authority tier</span><span class="v">${r.tier ?? "—"}</span></div>
-        <div class="row"><span class="k">Degradation</span><span class="v">${r.degradation_level ?? "—"}</span></div>
-        ${r.blocking_rules.length ? `<div class="row"><span class="k">Blocked by</span><span class="v">${r.blocking_rules.join("<br>")}</span></div>`:""}
-      </div></div>
-    </div>
-    <div class="note ${k==='B'?'hostile':''}">${r.note}</div>
-    ${k==='B' ? `<div class="note hostile"><b>Financial state: UNCHANGED. External delivery: NOT SENT.</b>
-       The model's proposal was rejected, so nothing it asked for happened. The action shown above was chosen
-       by the <b>deterministic policy tree</b>, not by the model, and is queued only — this build has no
-       email/SMS/WhatsApp sender, so nothing leaves the system.<br>
-       A discount is not merely refused — <b>ActionType has no DISCOUNT, WRITE_OFF or MARK_PAID member</b>,
-       so it cannot be expressed in the production schema at all.</div>`:""}
-    ${k==='A' ? `<button class="pay" style="margin-top:12px" onclick="pay('${s.invoice_id}',1000000,'${k}')">
-       Simulate ₹10,000 payment</button><div id="pay-${k}"></div>`:""}
-    ${(k==='C' && (r.action_type==='SUPPRESS' || i.intent==='UNSUBSCRIBE')) ? `<div class="stopped">
-       ✓ Pursuit stopped. No outbound reminder was created for this account.</div>`:""}
-    <details style="margin-top:11px"><summary style="cursor:pointer;color:var(--dim);font-size:12px">Telemetry (redacted)</summary>
-      <pre>${JSON.stringify(r.telemetry,null,1)}</pre></details>`;
+function renderProvider(){
+  const ai = S.live_available, rz = (S.razorpay||{}).available;
+  el("provider").innerHTML = `
+    <div class="kv"><span class="k">AI</span><span class="v">
+      <span class="tag ${ai?'ok':'warn'}">${ai?'Live':'Offline'}</span></span></div>
+    <div class="kv"><span class="k">Model provider</span><span class="v">${ai?'OpenAI':'—'}</span></div>
+    <div class="kv"><span class="k">Model</span><span class="v meta">${esc(S.model_id)}</span></div>
+    <div class="kv"><span class="k">Fallback</span><span class="v"><span class="tag ok">Deterministic rules</span></span></div>
+    <div class="kv"><span class="k">Payments</span><span class="v">
+      <span class="tag ${rz?'ok':''}">${rz?'Razorpay Test Mode':'Razorpay unavailable'}</span></span></div>
+    <div class="kv"><span class="k">Simulator</span><span class="v"><span class="tag ok">Always available</span></span></div>
+    <div class="note ${ai?'ok':'info'}" style="margin-top:12px">${ai
+      ? "Recovery decisions use live model understanding. If the provider fails, the workflow degrades to the deterministic rules path — no decision is skipped."
+      : "No model credential in this environment, so recovery is running entirely on the deterministic rules path. Every account still receives a decision."}</div>`;
 }
 
-async function pay(invoice_id, paise, k, label){
-  const out = el("pay-"+k);
-  const before = await currentOutstanding(invoice_id);
-  out.innerHTML = '<div class="note"><span class="spin"></span> confirming payment…</div>';
-  const r = await api("/api/pay", {invoice_id, amount_paise:paise});
-  if (r.error){ out.innerHTML = `<div class="note hostile">${r.error}: ${r.detail}</div>`; return; }
-  const remaining = r.outstanding_paise;
-  out.innerHTML = `
-    <div class="bal"><span class="before">${rupees(before)}</span><span class="arrow">→</span>
-      <span class="after">${rupees(remaining)}</span>
-      <span class="pill ok">RECOVERED ${rupees(paise)}</span>
-      <span class="pill ${r.invoice_state==='PAID'?'ok':'warn'}">${r.invoice_state}</span>
-      <span class="pill warn">SIMULATED</span></div>
-    <div class="stopped">✓ Sweep → payment event → ledger, written by the in-database writers.
-      Outstanding was recomputed from v_invoice_outstanding — the demo did no arithmetic.</div>
-    ${remaining > 0
-      ? `<button class="pay" style="margin-top:10px" onclick="pay('${invoice_id}',${remaining},'${k}')">
-           Simulate remaining ${rupees(remaining)}</button>`
-      : `<button style="margin-top:10px" onclick="recheck('${k}')">Run recovery again → prove it stops</button>`}
-    <div id="stop-${k}"></div>`;
-  await refreshKpis();
+/* ── approvals (read only, by design) ───────────────────── */
+function renderApprovals(){
+  const ap = S.approvals||[];
+  el("n-ap").textContent = ap.length;
+  el("n-ap").className = "n" + (ap.length ? " hot" : "");
+  el("approvals").innerHTML = (ap.length ? ap.map(x=>`
+    <div class="ap">
+      <div class="top"><h4>${esc(x.name)}</h4>
+        <span class="meta">${esc(x.invoice_number)}</span>
+        <div class="grow"></div>
+        <span class="tag ai">Tier ${x.tier} · pending operator approval</span></div>
+      <div class="apg">
+        <div class="c"><div class="k">Outstanding</div><div class="v">${INR(x.outstanding_paise)}</div></div>
+        <div class="c"><div class="k">Requested action</div><div class="v">${esc(x.action_type)}</div></div>
+        <div class="c ok"><div class="k">Financial state</div><div class="v">UNCHANGED</div></div>
+        <div class="c ok"><div class="k">External delivery</div><div class="v">NOT SENT</div></div>
+      </div>
+      <div class="meta">Verdict ${esc(x.verdict)} · recorded ${esc(String(x.created_at).slice(0,19).replace("T"," "))}</div>
+    </div>`).join("") : '<div class="empty">No actions are pending approval.<br>Run the opt-out scenario to produce one.</div>')
+    + `<div class="note info" style="margin-top:4px">
+        <b>AI cannot approve its own Tier-2 actions.</b> The policy kernel classified this action as tier 2, so it
+        was recorded and stopped — no message was sent and no balance moved. Operator approval is a separate
+        authority boundary and is not implemented in this demo: no role in the system holds UPDATE on a recovery
+        action, which is the same rule that prevents the model from self-approving.</div>`;
 }
 
-async function currentOutstanding(invoice_id){
-  const st = await api("/api/state");
-  const row = st.accounts.find(a => a.invoice_id === invoice_id);
-  return row ? row.outstanding_paise : 0;
+/* ── audit timeline ─────────────────────────────────────── */
+function renderTimeline(){
+  const t = S.timeline||[];
+  el("timeline").innerHTML = t.length ? t.map(x=>`
+    <div class="tle"><span class="ln ${esc(x.lane)}">${esc(x.lane)}</span>
+      <div class="grow"><b>${esc(x.title)}</b><br>
+        <span class="meta">${esc(x.name)}${x.detail?" · "+esc(HUMAN[x.detail]||x.detail):""}</span></div>
+      <span class="meta">${esc(String(x.at).slice(11,19))}</span></div>`).join("")
+    : '<div class="empty">No events recorded yet.<br>Run a scenario from the recovery queue.</div>';
 }
 
-async function recheck(k){
-  const out = el("stop-"+k);
-  out.innerHTML = '<div class="note"><span class="spin"></span> re-running the recovery decision…</div>';
-  const r = await api("/api/run", {scenario:k});
-  if (r.error){ out.innerHTML = `<div class="note hostile">${r.error}: ${r.detail}</div>`; return; }
-  const stopped = !r.action_type || r.action_type === "SUPPRESS";
-  out.innerHTML = stopped
-    ? `<div class="stopped">✓ AUTOMATIC STOP — the invoice is settled, so the account is no longer an
-         eligible candidate. Outbound action: <b>NOT SENT</b>. No human told it to stop.</div>`
-    : `<div class="note">Decision: ${r.verdict} / ${r.action_type}</div>`;
-  await refreshKpis();
-}
-
-async function trail(account_id, name){
-  const t = await api("/api/timeline?account_id="+account_id);
-  el("trail").innerHTML = `<h2>Audit trail — ${name}</h2>
-    <div class="card"><div class="flow" style="grid-template-columns:1fr">
-    ${["proposals","validations","decisions","actions","payments","ledger"].map(s => `
-      <div class="pane"><div class="hd" style="background:var(--panel2);color:var(--dim)">${s}</div>
-        <div class="bd"><pre>${t[s].length ? JSON.stringify(t[s],null,1) : "— none —"}</pre></div></div>`).join("")}
-    </div></div>`;
-  el("trail").scrollIntoView({behavior:"smooth"});
-}
-
-async function refreshKpis(){
-  const st = await api("/api/state"); const d = st.dashboard;
-  el("k-risk").textContent = rupees(d.at_risk_paise);
-  el("k-rec").textContent  = rupees(d.recovered_paise);
-  el("k-od").textContent   = d.overdue_accounts;
-  el("k-ptp").textContent  = d.decisions;
-  STATE.accounts = st.accounts; renderAccounts();
-}
-async function reset(){ await api("/api/reset",{}); el("trail").innerHTML=""; await load(); }
 load();
 </script>
 </body>

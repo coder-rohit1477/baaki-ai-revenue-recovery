@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres-local-only}
       POSTGRES_DB: postgres
     ports:
-      - "5432:5432"
+      # Host 55432, container 5432. The default host port is commonly already taken by another local
+      # PostgreSQL; publishing on 55432 keeps Baaki's cluster separate from anything else on this machine.
+      - "55432:5432"
     volumes:
       - baaki_pgdata:/var/lib/postgresql/data
     healthcheck:

@@ -18,9 +18,10 @@ from uuid import UUID
 from pydantic import SecretStr
 
 from baaki.config import assert_no_model_credential, take_model_credential
-from demo import scenarios, store
+from baaki.domain.ids import new_id
+from demo import razorpay, scenarios, store
 from demo.provision import DB_NAME, provision
-from demo.seed import seed
+from demo.seed import SeededAccount, seed
 
 STATIC = Path(__file__).parent / "static"
 HOST, PORT = "127.0.0.1", int(os.environ.get("BAAKI_DEMO_PORT", "8899"))
@@ -45,6 +46,7 @@ class State:
         self.engine_owner = d.engine("baaki_migrate")
         self.engine_super = d.engine("super")  # reset needs TRUNCATE; no other path uses this engine
         self.accounts = self._seed()
+        self.links: dict[str, dict[str, Any]] = {}  # invoice_id -> payment link, this run only
 
     def scenario_accounts(self) -> dict[str, Any]:
         return {
@@ -66,6 +68,8 @@ class State:
         """
         store.truncate_demo_data(self.engine_super)
         self.accounts = self._seed()
+        self.links.clear()
+        self.links: dict[str, dict[str, Any]] = {}  # invoice_id -> payment link, this run only
 
 
 STATE: State | None = None
@@ -99,9 +103,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json({
                 "dashboard": store.dashboard(s.engine_app),
                 "accounts": store.accounts(s.engine_app),
+                "activity": store.recent_activity(s.engine_app),
                 "scenarios": s.scenario_accounts(),
                 "live_available": s.credential is not None,
                 "model_id": scenarios.LOCKED_MODEL_ID,
+                "razorpay": {"available": razorpay.available(), "mode": "test"},
+                "links": s.links,
+                "funnel": store.funnel(s.engine_app),
+                "attention": store.attention(s.engine_app),
+                "approvals": store.pending_approvals(s.engine_app),
+                "timeline": store.activity_timeline(s.engine_app),
             })
         elif route.path == "/api/timeline":
             account_id = UUID(parse_qs(route.query)["account_id"][0])
@@ -126,6 +137,11 @@ class Handler(BaseHTTPRequestHandler):
             elif route.path == "/api/pay":
                 self._json(store.simulate_payment(
                     s.engine_app, invoice_id=UUID(body["invoice_id"]), amount_paise=int(body["amount_paise"])))
+            elif route.path == "/api/razorpay/link":
+                acct = s.accounts[body["scenario"]]
+                self._json(_create_link(s, acct))
+            elif route.path == "/api/razorpay/check":
+                self._json(_check_payments(s, UUID(body["invoice_id"])))
             elif route.path == "/api/reset":
                 s.reseed()
                 self._json({"ok": True})
@@ -134,6 +150,37 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:  # the demo degrades visibly rather than dying on the judge
             log.exception("demo request failed")
             self._json({"error": type(exc).__name__, "detail": str(exc)[:500]}, 500)
+
+
+def _create_link(s: State, acct: SeededAccount) -> dict[str, Any]:
+    """One real Test Mode Payment Link for this invoice. `reference_id` is made run-safe: Razorpay rejects
+    a duplicate, and the demo is reset and replayed many times."""
+    existing = s.links.get(str(acct.invoice_id))
+    if existing is not None:
+        return existing
+    link = razorpay.create_payment_link(
+        amount_paise=acct.amount_paise,
+        first_min_partial_paise=min(1000000, acct.amount_paise),
+        reference_id=f"{acct.invoice_number}-{new_id().hex[:8]}",
+        invoice_id=str(acct.invoice_id),
+        description=f"{acct.name} — invoice {acct.invoice_number}",
+    )
+    out = {**link.as_dict(), "invoice_id": str(acct.invoice_id)}
+    s.links[str(acct.invoice_id)] = out
+    return out
+
+
+def _check_payments(s: State, invoice_id: UUID) -> dict[str, Any]:
+    """Ask the provider what it has, then reconcile through the committed writers. No webhook, no tunnel."""
+    raw = razorpay.fetch_payments()
+    items = razorpay.captured_for_invoice(raw, str(invoice_id))
+    if not items:
+        return {"matched": 0, "applied": [], "already_reconciled": [],
+                "outstanding_paise": store.outstanding(s.engine_app, invoice_id),
+                "invoice_state": store.invoice_state(s.engine_app, invoice_id),
+                "source": "razorpay_test_mode"}
+    return store.reconcile_provider_payments(
+        s.engine_app, invoice_id=invoice_id, raw_response=raw, items=items)
 
 
 def main() -> None:

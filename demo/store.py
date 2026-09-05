@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, text
 
+from baaki.db.writers._call import WriterUniqueViolation
 from baaki.db.writers.ledger import ledger_apply_payment
 from baaki.db.writers.payment import record_payment_event
 from baaki.db.writers.sweep import record_sweep_run
@@ -83,14 +84,56 @@ def dashboard(engine: Engine) -> dict[str, Any]:
 
 
 def accounts(engine: Engine) -> list[dict[str, Any]]:
+    """The recovery queue. Every column is read back from the database — nothing is computed here.
+
+    `latest_action` is the account's most recent committed decision, or NULL when Baaki has not evaluated
+    the account yet. It is never a guess about what Baaki *would* do.
+    """
     return _rows(engine, """
         SELECT a.account_id, a.name, a.opt_out, i.invoice_id, i.invoice_number, i.state,
-               i.due_date, v.outstanding_paise
+               i.due_date, v.outstanding_paise,
+               GREATEST(0, (CURRENT_DATE - i.due_date))                       AS days_overdue,
+               (SELECT count(*) FROM baaki.contact c
+                 WHERE c.account_id = a.account_id AND c.active AND NOT c.opted_out) AS contactable,
+               d.verdict AS latest_verdict, d.action_type AS latest_action,
+               d.tier AS latest_tier, d.degradation_level AS latest_level,
+               p.parsed ->> 'intent' AS latest_intent
         FROM baaki.account a
         JOIN baaki.invoice i ON i.account_id = a.account_id
         JOIN baaki.v_invoice_outstanding v ON v.invoice_id = i.invoice_id
+        LEFT JOIN LATERAL (
+            SELECT verdict, action_type, tier, degradation_level
+            FROM baaki.policy_decision pd
+            WHERE pd.account_id = a.account_id
+            ORDER BY pd.decision_id DESC LIMIT 1
+        ) d ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT parsed FROM baaki.agent_proposal ap
+            WHERE ap.account_id = a.account_id AND ap.kind = 'INTERPRETATION' AND ap.parsed IS NOT NULL
+            ORDER BY ap.created_at DESC LIMIT 1
+        ) p ON TRUE
         ORDER BY v.outstanding_paise DESC
     """)
+
+
+def recent_activity(engine: Engine, limit: int = 8) -> list[dict[str, Any]]:
+    """Recovery activity across the book: decisions taken and provider payments confirmed."""
+    return _rows(engine, """
+        SELECT * FROM (
+            SELECT 'DECISION' AS kind, a.name, d.action_type::text AS detail,
+                   d.verdict::text AS status, d.degradation_level::text AS level,
+                   NULL::bigint AS amount_paise, d.decision_id::text AS ref
+            FROM baaki.policy_decision d JOIN baaki.account a USING (account_id)
+            UNION ALL
+            SELECT 'PAYMENT', a.name, i.invoice_number::text,
+                   CASE WHEN p.provider_payment_id LIKE 'demo\\_pay\\_%' ESCAPE '\\'
+                        THEN 'Deterministic Simulator' ELSE 'Razorpay Test Mode' END,
+                   NULL::text, p.amount_paise::bigint, p.payment_event_id::text
+            FROM baaki.payment_event p
+            JOIN baaki.invoice i ON i.invoice_id = p.attributed_invoice_id
+            JOIN baaki.account a ON a.account_id = i.account_id
+        ) x ORDER BY ref DESC LIMIT :lim
+    """, {"lim": limit})
 
 
 def outstanding(engine: Engine, invoice_id: UUID) -> int:
@@ -169,3 +212,172 @@ def simulate_payment(engine_app: Engine, *, invoice_id: UUID, amount_paise: int)
         "invoice_state": invoice_state(engine_app, invoice_id),
         "simulated": True,
     }
+
+
+def reconcile_provider_payments(
+    engine_app: Engine, *, invoice_id: UUID, raw_response: str, items: list[tuple[dict[str, Any], str]]
+) -> dict[str, Any]:
+    """Reconcile REAL provider payments through the same writers the simulator uses.
+
+    This is the whole point of the Razorpay path: nothing downstream changes. The raw provider response is
+    recorded as a reconciliation sweep, each payment payload is handed to the payment writer as a literal
+    substring of that response, and the ledger applies it. Amounts, invoice state and the stopping rule are
+    all derived in-database, exactly as before.
+
+    Idempotency is the schema's, not ours: `uq_sweep_response` returns the existing sweep for an identical
+    response, and `uq_payment_provider_id` refuses a payment already recorded. Re-checking is therefore
+    safe and has no financial effect the second time.
+    """
+    now = datetime.now(UTC)
+    applied: list[dict[str, Any]] = []
+    already: list[str] = []
+    with engine_app.connect() as app:
+        sweep = record_sweep_run(
+            app, sweep_run_id=new_id(), provider="razorpay", window_from=now - timedelta(days=1),
+            window_to=now, requested_at=now, raw_response=raw_response,
+        )
+        app.commit()
+        for obj, span in items:
+            try:
+                pid = record_payment_event(
+                    app, payment_event_id=new_id(), webhook_event_id=None, sweep_run_id=sweep,
+                    provider_payload_raw=span, attributed_invoice_id=invoice_id,
+                    attribution_method=AttributionMethod.NOTES_INVOICE_ID,
+                )
+                ledger_apply_payment(app, payment_event_id=pid, trace_id=new_id())
+                app.commit()
+                applied.append({"provider_payment_id": str(obj.get("id")), "amount_paise": int(obj.get("amount", 0))})
+            except WriterUniqueViolation:
+                app.rollback()   # already reconciled on an earlier check — the ledger is unchanged
+                already.append(str(obj.get("id")))
+    return {
+        "matched": len(items),
+        "applied": applied,
+        "already_reconciled": already,
+        "outstanding_paise": outstanding(engine_app, invoice_id),
+        "invoice_state": invoice_state(engine_app, invoice_id),
+        "source": "razorpay_test_mode",
+    }
+
+
+# ── operational read models for the product surfaces ─────────────────────────────────────
+
+
+def pending_approvals(engine: Engine) -> list[dict[str, Any]]:
+    """Actions the kernel parked at PENDING_APPROVAL — real rows, not a UI construct.
+
+    There is deliberately no approve/reject path in this system: `COLUMN_UPDATE_GRANTS` (§6.4A) is the only
+    direct UPDATE capability in the schema and it does not include `recovery_action`, so no role — and
+    therefore no model — can transition an action's state. Operator approval is a Phase 4 authority.
+    """
+    return _rows(engine, """
+        SELECT r.action_id, r.action_type::text AS action_type, r.state::text AS state, r.created_at,
+               d.tier, d.verdict::text AS verdict, d.degradation_level::text AS level,
+               a.name, i.invoice_number, v.outstanding_paise
+        FROM baaki.recovery_action r
+        JOIN baaki.policy_decision d USING (decision_id)
+        JOIN baaki.account a ON a.account_id = r.account_id
+        JOIN baaki.invoice i ON i.invoice_id = r.invoice_id
+        JOIN baaki.v_invoice_outstanding v ON v.invoice_id = i.invoice_id
+        WHERE r.state = 'PENDING_APPROVAL'
+        ORDER BY r.created_at DESC
+    """)
+
+
+def funnel(engine: Engine) -> list[dict[str, Any]]:
+    """Recovery funnel. Every count is a query over committed state; none is derived in the browser."""
+    row = _rows(engine, """
+        SELECT
+          (SELECT count(*) FROM baaki.invoice i JOIN baaki.v_invoice_outstanding v USING (invoice_id)
+             WHERE i.due_date < CURRENT_DATE AND v.outstanding_paise > 0)              AS overdue,
+          (SELECT count(DISTINCT account_id) FROM baaki.agent_proposal
+             WHERE kind = 'INTERPRETATION')                                            AS replied,
+          (SELECT count(DISTINCT account_id) FROM baaki.policy_decision)               AS active,
+          (SELECT count(DISTINCT account_id) FROM baaki.agent_proposal
+             WHERE kind = 'INTERPRETATION' AND parsed ->> 'intent' = 'WILL_PAY_ON_DATE') AS promised,
+          (SELECT count(DISTINCT i.invoice_id) FROM baaki.invoice i
+             JOIN baaki.v_invoice_outstanding v USING (invoice_id)
+             WHERE v.outstanding_paise > 0 AND v.outstanding_paise < i.issued_paise)   AS part_paid,
+          (SELECT count(*) FROM baaki.invoice WHERE state = 'PAID')                    AS paid
+    """)[0]
+    stopped = int(row["paid"])  # a settled invoice is no longer an eligible recovery candidate
+    return [
+        {"label": "Overdue", "n": int(row["overdue"])},
+        {"label": "Customer replied", "n": int(row["replied"])},
+        {"label": "Recovery active", "n": int(row["active"])},
+        {"label": "Promise to pay", "n": int(row["promised"])},
+        {"label": "Partially paid", "n": int(row["part_paid"])},
+        {"label": "Paid", "n": int(row["paid"])},
+        {"label": "Recovery stopped", "n": stopped},
+    ]
+
+
+def attention(engine: Engine) -> list[dict[str, Any]]:
+    """Accounts genuinely needing a human. Only states that exist are reported."""
+    out: list[dict[str, Any]] = []
+    for r in pending_approvals(engine):
+        out.append({"kind": "Approval required", "name": r["name"], "invoice": r["invoice_number"],
+                    "detail": f"{r['action_type']} · tier {r['tier']}", "tone": "ai"})
+    for r in _rows(engine, """
+        SELECT a.name, i.invoice_number, v.outstanding_paise
+        FROM baaki.account a JOIN baaki.invoice i ON i.account_id = a.account_id
+        JOIN baaki.v_invoice_outstanding v ON v.invoice_id = i.invoice_id
+        WHERE EXISTS (SELECT 1 FROM baaki.contact c WHERE c.account_id = a.account_id AND c.opted_out)
+    """):
+        out.append({"kind": "Opted out", "name": r["name"], "invoice": r["invoice_number"],
+                    "detail": "excluded from future recovery contact", "tone": "bad"})
+    for r in _rows(engine, """
+        SELECT DISTINCT a.name, i.invoice_number, p.parse_status::text AS parse_status
+        FROM baaki.agent_proposal p JOIN baaki.account a USING (account_id)
+        JOIN baaki.invoice i ON i.account_id = a.account_id
+        WHERE p.parse_status <> 'OK'
+    """):
+        out.append({"kind": "AI output rejected", "name": r["name"], "invoice": r["invoice_number"],
+                    "detail": f"{r['parse_status']} — deterministic fallback used", "tone": "warn"})
+    return out[:8]
+
+
+def activity_timeline(engine: Engine, limit: int = 24) -> list[dict[str, Any]]:
+    """Chronological audit trail. Each row is an event that actually happened, with its own timestamp."""
+    return _rows(engine, """
+        SELECT * FROM (
+          SELECT p.created_at AS at, 'AI' AS lane,
+                 CASE WHEN p.kind = 'INTERPRETATION' THEN 'AI interpreted customer response'
+                      ELSE 'AI proposed a recovery action' END AS title,
+                 COALESCE(p.parsed ->> 'intent', p.parse_status::text) AS detail, a.name
+          FROM baaki.agent_proposal p JOIN baaki.account a USING (account_id)
+          UNION ALL
+          SELECT v.created_at, 'POLICY',
+                 CASE WHEN v.outcome = 'PASS' THEN 'Validator accepted the proposal'
+                      ELSE 'Validator rejected the proposal' END,
+                 COALESCE(array_to_string(ARRAY(SELECT jsonb_array_elements_text(
+                   to_jsonb(v.rejection_reasons))), ', '), v.outcome::text), a.name
+          FROM baaki.validation_result v JOIN baaki.account a USING (account_id)
+          UNION ALL
+          SELECT d.decided_at, 'POLICY',
+                 CASE WHEN d.verdict = 'REQUIRE_APPROVAL' THEN 'Policy kernel requires human approval'
+                      WHEN d.verdict = 'ALLOW' THEN 'Policy kernel allowed the action'
+                      ELSE 'Policy kernel blocked the action' END,
+                 COALESCE(d.action_type::text, d.verdict::text), a.name
+          FROM baaki.policy_decision d JOIN baaki.account a USING (account_id)
+          UNION ALL
+          SELECT r.created_at, 'ACTION',
+                 CASE WHEN r.state = 'PENDING_APPROVAL' THEN 'Action held for operator approval'
+                      ELSE 'Recovery action queued' END,
+                 r.action_type::text, a.name
+          FROM baaki.recovery_action r JOIN baaki.account a USING (account_id)
+          UNION ALL
+          SELECT p.created_at, 'MONEY', 'Payment confirmed',
+                 CASE WHEN p.provider_payment_id LIKE 'demo\\_pay\\_%' ESCAPE '\\'
+                      THEN 'Deterministic Simulator' ELSE 'Razorpay Test Mode' END
+                 || ' · ' || (p.amount_paise / 100)::text, a.name
+          FROM baaki.payment_event p JOIN baaki.invoice i ON i.invoice_id = p.attributed_invoice_id
+          JOIN baaki.account a ON a.account_id = i.account_id
+          UNION ALL
+          SELECT (SELECT max(pe.created_at) FROM baaki.payment_event pe
+                    WHERE pe.attributed_invoice_id = i.invoice_id),
+                 'MONEY', 'Invoice settled — recovery stopped', i.invoice_number, a.name
+          FROM baaki.invoice i JOIN baaki.account a USING (account_id)
+          WHERE i.state = 'PAID'
+        ) x WHERE at IS NOT NULL ORDER BY at DESC LIMIT :lim
+    """, {"lim": limit})
