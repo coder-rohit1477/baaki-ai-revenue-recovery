@@ -211,6 +211,6 @@ def test_the_agent_role_cannot_write_a_decision(agent):
 
 def test_the_pipeline_leg_refuses_to_run_while_the_credential_is_reachable(world, monkeypatch):
     ids, _, _ = world
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-put-back-by-something")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-putback")
     with pytest.raises(ModelCredentialLeak):
         drive(world, provider_for(reply(INTERP), reply(action_body(ids))))
